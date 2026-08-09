@@ -219,7 +219,21 @@ export default function App() {
       }
     } catch (err: any) {
       console.error("Login failed:", err);
-      setErrorMessage("ไม่สามารถลงชื่อเข้าใช้ด้วยบัญชี Google ได้ กรุณาลองใหม่อีกครั้ง");
+      const errCode = err?.code || "";
+      const errDetail = err?.message || String(err);
+
+      let friendlyMsg = "";
+      if (errCode === "auth/popup-blocked") {
+        friendlyMsg = "ป๊อบอัพลงชื่อเข้าใช้ถูกบล็อกโดยเบราว์เซอร์/iframe กรุณาอนุญาตป๊อบอัพ หรือคลิกปุ่ม 'เปิดในแท็บใหม่' ด้านบน";
+      } else if (errCode === "auth/popup-closed-by-user") {
+        friendlyMsg = "หน้าต่างลงชื่อเข้าใช้ถูกปิดก่อนทำรายการเสร็จสิ้น กรุณากด Sign in with Google อีกครั้ง";
+      } else if (errCode === "auth/unauthorized-domain") {
+        friendlyMsg = "โดเมนเว็บไซต์นี้ยังไม่ได้ลงทะเบียนใน Firebase Authorized Domains (กรุณาคลิก 'เปิดในแท็บใหม่')";
+      } else {
+        friendlyMsg = `ไม่สามารถลงชื่อเข้าใช้ด้วยบัญชี Google ได้: ${errDetail}`;
+      }
+
+      setErrorMessage(friendlyMsg);
     } finally {
       setIsLoggingIn(false);
     }
@@ -1045,6 +1059,17 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            <a
+              href={window.location.href}
+              target="_blank"
+              rel="noreferrer"
+              title="เปิดแอปในหน้าต่างใหม่ หากเกิดปัญหาป๊อบอัพเข้าสู่ระบบถูกบล็อก"
+              className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 px-3 py-2 rounded-lg font-medium transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>เปิดในแท็บใหม่</span>
+            </a>
+
             {user ? (
               <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full">
                 {user.photoURL ? (
@@ -1098,15 +1123,30 @@ export default function App() {
         
         {/* Alerts / Error message box */}
         {errorMessage && (
-          <div className="col-span-12 bg-rose-50 border border-rose-200 rounded-xl p-4 flex gap-3 items-start text-rose-800 shadow-xs animate-fade-in">
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm">
-              <p className="font-semibold">เกิดข้อผิดพลาด</p>
-              <p className="text-rose-700/90">{errorMessage}</p>
+          <div className="col-span-12 bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between text-rose-800 shadow-xs animate-fade-in">
+            <div className="flex gap-3 items-start">
+              <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <p className="font-semibold text-rose-900">เกิดข้อผิดพลาดในการทำงาน</p>
+                <p className="text-rose-700/90 leading-relaxed mt-0.5">{errorMessage}</p>
+                {(errorMessage.includes("Google") || errorMessage.includes("ป๊อบอัพ") || errorMessage.includes("ลงชื่อเข้าใช้")) && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                    <a
+                      href={window.location.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors shadow-xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      เปิดแอปในหน้าต่างใหม่ (New Tab) เพื่อลงชื่อเข้าใช้
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
             <button 
               onClick={() => setErrorMessage(null)} 
-              className="text-xs text-rose-400 hover:text-rose-600 font-semibold px-2 py-1 rounded-md"
+              className="text-xs text-rose-400 hover:text-rose-600 font-semibold px-2 py-1 rounded-md shrink-0 cursor-pointer"
             >
               ปิด
             </button>
@@ -1188,13 +1228,44 @@ export default function App() {
                   <p className="font-bold text-slate-700">เข้าสู่ระบบ Google เพื่อเชื่อมต่อชีตของคุณ</p>
                   <p className="text-slate-500 mt-1">ระบบจะส่งข้อมูลบันทึกแยกคำโปรย สรุปและโค้ดลงตารางทันทีอย่างรวดเร็ว</p>
                 </div>
-                <button
-                  onClick={handleLogin}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>เชื่อมต่อบัญชี Google</span>
-                </button>
+                <div className="flex flex-wrap items-center justify-center gap-2 w-full mt-1">
+                  <button
+                    onClick={handleLogin}
+                    disabled={isLoggingIn}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                  >
+                    {isLoggingIn ? (
+                      <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Plus className="w-3.5 h-3.5" />
+                    )}
+                    <span>เชื่อมต่อบัญชี Google</span>
+                  </button>
+                  <a
+                    href={window.location.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-medium text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors shadow-xs"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>เปิดในแท็บใหม่</span>
+                  </a>
+                </div>
+                <div className="mt-1 pt-2 border-t border-slate-200 w-full">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = prompt("กรอก Google OAuth Access Token (ya29...):");
+                      if (input && input.trim()) {
+                        setToken(input.trim());
+                        setNeedsAuth(false);
+                      }
+                    }}
+                    className="text-[11px] text-slate-500 hover:text-emerald-600 underline font-medium cursor-pointer"
+                  >
+                    หรือป้อน OAuth Access Token โดยตรง
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex flex-col gap-4">
