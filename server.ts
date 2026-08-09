@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { put } from "@vercel/blob";
@@ -102,7 +101,26 @@ Return your response strictly as a JSON object matching the requested schema. En
       throw new Error("No response received from Gemini.");
     }
 
-    const result = JSON.parse(text.trim());
+    let result: any;
+    try {
+      let cleanedText = text.trim();
+      if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+      }
+      result = JSON.parse(cleanedText);
+    } catch (parseErr) {
+      console.error("Direct JSON parse failed, trying regex extraction. Raw text:", text);
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          result = JSON.parse(jsonMatch[0]);
+        } catch {
+          throw new Error("ไม่สามารถอ่านข้อมูลผลลัพธ์จาก AI เป็น JSON ได้ กรุณากดลองวิเคราะห์ใหม่อีกครั้ง");
+        }
+      } else {
+        throw new Error("ระบบ AI ไม่ได้ส่งข้อมูลกลับมาในรูปแบบที่ถูกต้อง กรุณากดลองวิเคราะห์ใหม่อีกครั้ง");
+      }
+    }
 
     // Sanitize values to replace HTML character entities with raw characters
     const sanitizeHtmlEntities = (val: string): string => {
@@ -406,6 +424,7 @@ app.post("/api/vercel/blob/upload-base64", async (req, res) => {
 async function startServer() {
   // Vite dev server vs static serving in production
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
