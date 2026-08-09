@@ -1,0 +1,6 @@
+{
+  "name": "EA Content Extractor to Sheets",
+  "description": "Extracts HTML code, taglines, and EA features using Gemini and exports them directly to Google Sheets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,432 @@
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import { GoogleGenAI, Type } from "@google/genai";
+import dotenv from "dotenv";
+import { put } from "@vercel/blob";
+
+dotenv.config();
+
+const app = express();
+app.use(express.json({ limit: "10mb" }));
+
+const PORT = 3000;
+
+// Initialize the modern Gemini API Client
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = new GoogleGenAI({
+  apiKey: apiKey,
+  httpOptions: {
+    headers: {
+      'User-Agent': 'aistudio-build',
+    }
+  }
+});
+
+// Cache for storing generated image URLs in-memory
+const imageCache = new Map<string, string>();
+
+// API endpoint to analyze raw EA text / code and extract Slogan, Features, and HTML code.
+app.post("/api/analyze", async (req, res) => {
+  try {
+    const { input } = req.body;
+    if (!input) {
+      return res.status(400).json({ error: "Input text is required" });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+    }
+
+    const prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
+Given the following raw text, EA trading strategy description, MQL code, or feature request, perform these steps:
+1. Parse and extract/generate a professional and unique EA Name (short, maximum 4-5 words, e.g. "Scalping Horizon EA" or "Divergence Quantum Pro").
+2. Create a catchment, catchy, persuasive marketing tagline (คำโปรย in Thai, 1-2 sentences) that highlights the EA's key benefit or strategy. This tagline MUST be returned fully formatted as modern, clean HTML code (e.g. using a beautifully styled paragraph tag or wrapper like '<p class="text-indigo-600 font-bold italic text-lg">...</p>').
+3. Generate a structured features summary (สรุปฟีเจอร์ in Thai, detailing indicators used, trading session focus, risk management, and settings). This features summary MUST be returned fully formatted as robust, semantic HTML code (e.g. using '<ul>', '<li>', '<strong>', '<span class="text-emerald-500">', etc. with Tailwind utility classes or clean inline styled elements). Do NOT use markdown.
+4. Code a stunning, modern visual landing card or showcase section using HTML with Tailwind CSS classes. It should visually display the EA's name, the tagline, the core features list, and include mock visual elements (like a green active trading indicator, target success rate badges, and clean padding).
+   - Use beautiful modern colors (such as slate-800, indigo, emerald, or amber accents).
+   - The HTML MUST be self-contained in a parent <div>.
+   - Do NOT include <html>, <head>, or <body> tags. Just raw styled Tailwind elements.
+   - Ensure all images/icons are clean and from Lucide/Heroicons if any, or simple CSS circles/shapes.
+   - The HTML code should be robust, professional, and readable.
+5. Create a highly descriptive English image generation prompt tailored for Leonardo.ai or Flux/Pollinations to generate a stunning, professional, and commercial-grade marketing visual representing this EA.
+   - CRITICAL QUALITY CONTROL: The visual must look like a premium corporate financial or fintech product (e.g., sleek futuristic AI trading terminal, a smart metallic trading bot with glowing blue/green/amber charts, elegant gold bulls/bears representations, or high-tech automated trading consoles).
+   - AVOID CHILDISH/LITERAL INTERPRETATIONS: If the EA's name contains metaphorical or whimsical terms (like "Lollipop", "Rabbit", "Candy", "Dragon", "Phoenix", etc.), DO NOT generate literal candies, sweets, rabbits, or toys. Instead, interpret them as a sleek modern tech-branding concept. For example, if the name is "Lollipop", represent it as a professional, abstract high-tech corporate icon, a glowing geometric sphere representing market data, or a cybernetic trading terminal with an emblem decal. Never make actual lollipops, foods, or cartoonish characters.
+   - STYLE: Cinematic lighting, 3D digital art, octane render, futuristic, clean professional aesthetic, high contrast, dark high-tech slate/indigo background with vibrant neon accents (green/blue/amber), photorealistic, 8k resolution, commercial advertising style.
+
+CRITICAL DESIGN REQUIREMENT FOR HTML / TEXT FIELDS:
+- DO NOT use any HTML character entities or encodings like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;' inside the Thai text fields or HTML wrappers.
+- All Thai quotation marks must be raw characters (e.g., “ หรือ ” หรือ " หรือ ') or normal standard characters.
+- Ensure that the resulting JSON can be rendered directly using dangerouslySetInnerHTML without displaying weird literal codes like '&ldquo;' to the user.
+
+Input Text/Strategy Description:
+${input}
+
+Return your response strictly as a JSON object matching the requested schema. Ensure that your output does not wrap the JSON keys with any formatting or code blocks inside the text fields. Thai text must be grammatically correct and persuasive.`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            eaName: {
+              type: Type.STRING,
+              description: "The name of the Expert Advisor (EA)."
+            },
+            tagline: {
+              type: Type.STRING,
+              description: "A persuasive, catchy marketing tagline in Thai (คำโปรย) written as ready-to-use HTML code."
+            },
+            featuresSummary: {
+              type: Type.STRING,
+              description: "Structured trading features and settings in Thai (สรุปฟีเจอร์) formatted entirely as clean, styled semantic HTML code (e.g. ul/li/strong/span)."
+            },
+            htmlCode: {
+              type: Type.STRING,
+              description: "Stunning visual presentation card styled with Tailwind CSS in HTML."
+            },
+            imagePrompt: {
+              type: Type.STRING,
+              description: "Detailed English image generation prompt for Leonardo.ai representing the EA."
+            }
+          },
+          required: ["eaName", "tagline", "featuresSummary", "htmlCode", "imagePrompt"]
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) {
+      throw new Error("No response received from Gemini.");
+    }
+
+    const result = JSON.parse(text.trim());
+
+    // Sanitize values to replace HTML character entities with raw characters
+    const sanitizeHtmlEntities = (val: string): string => {
+      if (!val) return "";
+      return val
+        .replace(/&ldquo;/g, '“')
+        .replace(/&rdquo;/g, '”')
+        .replace(/&lsquo;/g, '‘')
+        .replace(/&rsquo;/g, '’')
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&ndash;/g, '–')
+        .replace(/&mdash;/g, '—')
+        .replace(/“/g, '"')
+        .replace(/”/g, '"');
+    };
+
+    result.eaName = result.eaName || "";
+    result.tagline = sanitizeHtmlEntities(result.tagline || "");
+    result.featuresSummary = sanitizeHtmlEntities(result.featuresSummary || "");
+    result.htmlCode = sanitizeHtmlEntities(result.htmlCode || "");
+    result.imagePrompt = sanitizeHtmlEntities(result.imagePrompt || "");
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("Gemini analysis error:", error);
+    res.status(500).json({ error: error.message || "Failed to analyze and extract EA content" });
+  }
+});
+
+// Proxy route to initiate image generation on Leonardo.ai or Free Pollinations.ai
+app.post("/api/leonardo/generate", async (req, res) => {
+  try {
+    const { prompt, width, height, modelId, clientApiKey } = req.body;
+
+    // Check if user selected the free generator or does not have a key
+    if (modelId === "free-pollinations" || !clientApiKey) {
+      const finalWidth = width || 1024;
+      const finalHeight = height || 1024;
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt || "A sleek futuristic trading card")}?width=${finalWidth}&height=${finalHeight}&nologo=true&enhance=true&seed=${randomSeed}`;
+      
+      const generationId = `free-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      imageCache.set(generationId, imageUrl);
+
+      return res.json({
+        sdGenerationJob: {
+          generationId: generationId
+        }
+      });
+    }
+
+    let activeApiKey = clientApiKey || process.env.LEONARDO_API_KEY;
+
+    if (!activeApiKey) {
+      return res.status(400).json({ error: "Missing Leonardo.ai API Key. Please select 'Free AI Generator' or configure LEONARDO_API_KEY on the server." });
+    }
+
+    if (typeof activeApiKey === "string") {
+      // Thoroughly sanitize the key: remove any spaces, quotes, newlines, or invisible characters
+      activeApiKey = activeApiKey.replace(/[\s\r\n\t]/g, "").replace(/["']/g, "").trim();
+    }
+
+    const payload = {
+      prompt: prompt || "A sleek futuristic trading card",
+      width: width || 1024,
+      height: height || 768,
+      modelId: modelId || "b2449217-0e93-4096-bba0-49aef32fc5b5", // Default to Phoenix/Leonardo Vision XL
+      num_images: 1,
+    };
+
+    const apiRes = await fetch("https://api.leonardo.ai/api/rest/v1/generations", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${activeApiKey}`,
+        "Content-Type": "application/json",
+        "accept": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      let customError = `Leonardo API Error (Status ${apiRes.status}): ${errText}`;
+      if (apiRes.status === 401) {
+        customError = "คีย์ API Key ของ Leonardo ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าใช้งาน กรุณาตรวจสอบว่าคีย์สะกดถูกต้องและไม่มีช่องว่างส่วนเกิน";
+      } else if (errText.includes("Could not verify JWT") || errText.includes("invalid-jwt") || errText.includes("JWSError")) {
+        customError = "คีย์ API ของคุณถูกปฏิเสธโดย Leonardo.ai (ระบบแจ้งข้อผิดพลาด JWT/JWSError)\n\n" +
+                      "สาเหตุทั่วไป:\n" +
+                      "1. คีย์ที่วางไม่ตรงกับในระบบ หรือคัดลอกมาไม่สมบูรณ์ (คีย์ที่ถูกต้องปกติจะเป็นรหัส UUID เช่น '9f677511-78f1-401f-9dfe-bc7215d3d3d4')\n" +
+                      "2. บัญชีไม่มี API Credits ที่ใช้งานได้จริงในฝั่ง API (หากพึ่งเติมเงิน กรุณารอระบบอัปเดตสักครู่ หรือลองออกและสร้างคีย์ใหม่ในแผงควบคุม app.leonardo.ai/api-access/api-keys)\n" +
+                      "3. ตรวจสอบให้มั่นใจว่าได้ป้อนคีย์ลงในช่องและไม่มีช่องว่างแทรกอยู่";
+      }
+      return res.status(apiRes.status).json({ error: customError });
+    }
+
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (error: any) {
+    console.error("Leonardo generation initiation failed:", error);
+    res.status(500).json({ error: error.message || "Leonardo generation initiation failed" });
+  }
+});
+
+// Proxy route to check image generation status on Leonardo.ai or Free Pollinations.ai
+app.get("/api/leonardo/status/:generationId", async (req, res) => {
+  try {
+    const { generationId } = req.params;
+
+    // Check if this is a free generation job
+    if (generationId && generationId.startsWith("free-")) {
+      const cachedUrl = imageCache.get(generationId);
+      if (!cachedUrl) {
+        return res.status(404).json({ error: "Image generation job not found or expired" });
+      }
+
+      return res.json({
+        generations_by_pk: {
+          status: "COMPLETE",
+          generated_images: [
+            {
+              url: cachedUrl
+            }
+          ]
+        }
+      });
+    }
+
+    const clientApiKey = req.headers["x-leonardo-key"];
+    let activeApiKey = clientApiKey || process.env.LEONARDO_API_KEY;
+
+    if (!activeApiKey) {
+      return res.status(400).json({ error: "Missing Leonardo.ai API Key." });
+    }
+
+    if (typeof activeApiKey === "string") {
+      // Thoroughly sanitize the key: remove any spaces, quotes, newlines, or invisible characters
+      activeApiKey = activeApiKey.replace(/[\s\r\n\t]/g, "").replace(/["']/g, "").trim();
+    }
+
+    const apiRes = await fetch(`https://api.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+      method: "GET",
+      headers: {
+        "Authorization": `Bearer ${activeApiKey}`,
+        "accept": "application/json"
+      }
+    });
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      let customError = `Leonardo API status fetch error (Status ${apiRes.status}): ${errText}`;
+      if (apiRes.status === 401) {
+        customError = "คีย์ API Key ของ Leonardo ไม่ถูกต้อง หรือสิทธิ์การใช้งานหมดอายุ";
+      } else if (errText.includes("Could not verify JWT") || errText.includes("invalid-jwt") || errText.includes("JWSError")) {
+        customError = "คีย์ API ของคุณถูกปฏิเสธโดย Leonardo.ai (ระบบแจ้งข้อผิดพลาด JWT/JWSError)\n\n" +
+                      "สาเหตุทั่วไป:\n" +
+                      "1. คีย์ที่วางไม่ตรงกับในระบบ หรือคัดลอกมาไม่สมบูรณ์ (คีย์ที่ถูกต้องปกติจะเป็นรหัส UUID เช่น '9f677511-78f1-401f-9dfe-bc7215d3d3d4')\n" +
+                      "2. บัญชีไม่มี API Credits ที่ใช้งานได้จริงในฝั่ง API (หากพึ่งเติมเงิน กรุณารอระบบอัปเดตสักครู่ หรือลองออกและสร้างคีย์ใหม่ในแผงควบคุม app.leonardo.ai/api-access/api-keys)\n" +
+                      "3. ตรวจสอบให้มั่นใจว่าได้ป้อนคีย์ลงในช่องและไม่มีช่องว่างแทรกอยู่";
+      }
+      return res.status(apiRes.status).json({ error: customError });
+    }
+
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (error: any) {
+    console.error("Leonardo status fetch failed:", error);
+    res.status(500).json({ error: error.message || "Leonardo status fetch failed" });
+  }
+});
+
+// Proxy route to deploy static HTML to Vercel
+app.post("/api/vercel/deploy", async (req, res) => {
+  try {
+    const { vercelToken, name, htmlCode } = req.body;
+
+    if (!vercelToken) {
+      return res.status(400).json({ error: "Vercel Personal Access Token is required to deploy." });
+    }
+
+    if (!htmlCode) {
+      return res.status(400).json({ error: "HTML Code is empty or missing." });
+    }
+
+    // Clean name to Vercel-friendly format (lowercase, no spaces, allowed symbols)
+    const cleanName = (name || "ea-landing-page")
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+
+    const payload = {
+      name: cleanName,
+      files: [
+        {
+          file: "index.html",
+          data: htmlCode
+        }
+      ],
+      projectSettings: {
+        framework: null
+      }
+    };
+
+    const apiRes = await fetch("https://api.vercel.com/v13/deployments", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${vercelToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!apiRes.ok) {
+      const errText = await apiRes.text();
+      return res.status(apiRes.status).json({ error: `Vercel Deployment Error: ${errText}` });
+    }
+
+    const data = await apiRes.json();
+    res.json(data);
+  } catch (error: any) {
+    console.error("Vercel deployment failed:", error);
+    res.status(500).json({ error: error.message || "Vercel deployment failed" });
+  }
+});
+
+// Proxy route to upload Leonardo.ai image directly to Vercel Blob storage
+app.post("/api/vercel/blob/upload", async (req, res) => {
+  try {
+    const { imageUrl, customToken, fileName } = req.body;
+    const rawToken = customToken || process.env.BLOB_READ_WRITE_TOKEN;
+    const token = typeof rawToken === "string" ? rawToken.trim() : rawToken;
+
+    if (!token) {
+      return res.status(400).json({ error: "Missing Vercel BLOB_READ_WRITE_TOKEN. Please provide it in the inputs or configure it as environment variable." });
+    }
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: "No image URL provided to upload." });
+    }
+
+    // Fetch the image from Leonardo S3 (often a presigned S3 url)
+    const imageRes = await fetch(imageUrl);
+    if (!imageRes.ok) {
+      throw new Error(`Failed to download Leonardo image: ${imageRes.statusText}`);
+    }
+
+    const contentType = imageRes.headers.get("content-type") || "image/jpeg";
+    const arrayBuffer = await imageRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Perform Vercel Blob Put operation
+    const nameToUse = fileName || `ea_avatar_${Date.now()}.jpg`;
+    const blobResult = await put(nameToUse, buffer, {
+      access: "public",
+      token: token,
+      contentType: contentType,
+    });
+
+    res.json({ url: blobResult.url });
+  } catch (error: any) {
+    console.error("Vercel Blob upload failed:", error);
+    res.status(500).json({ error: error.message || "Failed to upload image to Vercel Blob Storage." });
+  }
+});
+
+// Proxy route to upload custom base64 file to Vercel Blob storage
+app.post("/api/vercel/blob/upload-base64", async (req, res) => {
+  try {
+    const { base64Data, contentType, customToken, fileName } = req.body;
+    const rawToken = customToken || process.env.BLOB_READ_WRITE_TOKEN;
+    const token = typeof rawToken === "string" ? rawToken.trim() : rawToken;
+
+    if (!token) {
+      return res.status(400).json({ error: "Missing Vercel BLOB_READ_WRITE_TOKEN." });
+    }
+
+    if (!base64Data) {
+      return res.status(400).json({ error: "No base64 data provided." });
+    }
+
+    const buffer = Buffer.from(base64Data, "base64");
+    const nameToUse = fileName || `ea_image_${Date.now()}.jpg`;
+    
+    const blobResult = await put(nameToUse, buffer, {
+      access: "public",
+      token: token,
+      contentType: contentType || "image/jpeg",
+    });
+
+    res.json({ url: blobResult.url });
+  } catch (error: any) {
+    console.error("Vercel Blob base64 upload failed:", error);
+    res.status(500).json({ error: error.message || "Failed to upload custom file to Vercel Blob." });
+  }
+});
+
+async function startServer() {
+  // Vite dev server vs static serving in production
+  if (process.env.NODE_ENV !== "production") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+if (!process.env.VERCEL) {
+  startServer().catch(console.error);
+}
+
+export default app;
