@@ -46,6 +46,36 @@ const PRESETS = [
   }
 ];
 
+const parseApiResponse = async (response: Response) => {
+  const contentType = response.headers.get("content-type") || "";
+  const text = await response.text();
+
+  let data: any = null;
+  if (contentType.includes("application/json") || text.trim().startsWith("{") || text.trim().startsWith("[")) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // ignore JSON parse error
+    }
+  }
+
+  if (!response.ok) {
+    if (data && (data.error || data.message)) {
+      throw new Error(data.error || data.message);
+    }
+    if (text.includes("A server error") || text.includes("Server Error") || response.status === 500) {
+      throw new Error("เกิดข้อผิดพลาดที่เซิร์ฟเวอร์ (500 Server Error) กรุณาตรวจสอบว่าได้ตั้งค่า GEMINI_API_KEY ใน Environment Variables บน Vercel แล้วหรือยัง");
+    }
+    throw new Error(`เซิร์ฟเวอร์ตอบกลับข้อผิดพลาด (${response.status}): ${text.slice(0, 150)}`);
+  }
+
+  if (!data) {
+    throw new Error("การตอบกลับจากเซิร์ฟเวอร์ไม่ได้อยู่ในรูปแบบ JSON ที่ถูกต้อง");
+  }
+
+  return data;
+};
+
 export default function App() {
   // Authentication states
   const [user, setUser] = useState<FirebaseUser | null>(null);
@@ -268,12 +298,7 @@ export default function App() {
         body: JSON.stringify({ input: inputText }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Failed to analyze");
-      }
-
-      const data: EAContent = await response.json();
+      const data: EAContent = await parseApiResponse(response);
       setAnalysisResult(data);
       setCustomImagePrompt(data.imagePrompt || "");
       setVercelProjectName(data.eaName ? data.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "ea-landing-page");
@@ -622,12 +647,7 @@ export default function App() {
         })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "ไม่สามารถเชื่อมต่อเพื่อสั่งเจนภาพได้");
-      }
-
-      const initData = await response.json();
+      const initData = await parseApiResponse(response);
       const generationId = initData.sdGenerationJob?.generationId;
       if (!generationId) {
         throw new Error("ระบบตอบกลับสำเร็จแต่ไม่พบ Generation ID คาดว่าโควตาคีย์ของคุณหมด หรือคีย์ไม่ถูกต้อง");
@@ -648,16 +668,7 @@ export default function App() {
             }
           });
 
-          if (!statusRes.ok) {
-            clearInterval(pollInterval);
-            setIsGeneratingImage(false);
-            setLeonardoStatus("");
-            const errData = await statusRes.json();
-            setErrorMessage(errData.error || "เกิดข้อผิดพลาดในการตรวจสอบสถานะของภาพ");
-            return;
-          }
-
-          const statusData = await statusRes.json();
+          const statusData = await parseApiResponse(statusRes);
           const job = statusData.generations_by_pk;
           
           if (!job) {
@@ -768,12 +779,7 @@ export default function App() {
         });
       }
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "เกิดข้อผิดพลาดในการอัปโหลดรูปภาพไปยัง Vercel Blob");
-      }
-
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       setVercelBlobUrl(data.url);
     } catch (err: any) {
       console.error("Upload to Vercel Blob failed:", err);
@@ -991,12 +997,7 @@ export default function App() {
         })
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "เกิดข้อผิดพลาดขณะดีพลอยไป Vercel");
-      }
-
-      const data = await response.json();
+      const data = await parseApiResponse(response);
       if (data.url) {
         setVercelUrl(`https://${data.url}`);
       } else {

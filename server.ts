@@ -12,31 +12,30 @@ app.use(express.json({ limit: "10mb" }));
 
 const PORT = 3000;
 
-// Initialize the modern Gemini API Client
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({
-  apiKey: apiKey,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    }
-  }
-});
-
 // Cache for storing generated image URLs in-memory
 const imageCache = new Map<string, string>();
 
 // API endpoint to analyze raw EA text / code and extract Slogan, Features, and HTML code.
 app.post("/api/analyze", async (req, res) => {
   try {
-    const { input } = req.body;
+    const { input } = req.body || {};
     if (!input) {
       return res.status(400).json({ error: "Input text is required" });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server. Please add GEMINI_API_KEY to your Vercel Environment Variables." });
     }
+
+    const ai = new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
 
     const prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
 Given the following raw text, EA trading strategy description, MQL code, or feature request, perform these steps:
@@ -65,7 +64,7 @@ ${input}
 Return your response strictly as a JSON object matching the requested schema. Ensure that your output does not wrap the JSON keys with any formatting or code blocks inside the text fields. Thai text must be grammatically correct and persuasive.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.5-flash",
+      model: "gemini-2.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
