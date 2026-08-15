@@ -1184,11 +1184,59 @@ export default function App() {
             </p>
 
             <textarea
-              className="w-full min-h-[160px] bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all placeholder-slate-400"
+              className="w-full min-h-[140px] bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all placeholder-slate-400"
               placeholder="วางข้อมูลสเปคอธิบาย EA, โค้ดโปรแกรมเมอร์ หรือไอเดียจุดเข้าซื้อขายได้ที่นี่..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
             />
+
+            {/* Gemini API Key Configuration Box (Always Prominently Visible) */}
+            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 border border-indigo-200/80 rounded-xl p-3.5 flex flex-col gap-2.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                    <Key className="w-3.5 h-3.5" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Gemini API Key
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {geminiApiKey ? "✅ บันทึกคีย์พร้อมใช้งานแล้ว" : "⚠️ กรุณาวาง Gemini API Key เพื่อเริ่มวิเคราะห์"}
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 bg-white border border-indigo-200 px-2.5 py-1 rounded-lg shadow-2xs"
+                >
+                  <span>รับคีย์ฟรี</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  placeholder="วาง Gemini API Key ที่นี่ (ขึ้นต้นด้วย AIzaSy...)"
+                  value={geminiApiKey}
+                  onChange={(e) => handleSaveGeminiKey(e.target.value)}
+                  className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder-slate-400 shadow-2xs"
+                />
+                {geminiApiKey && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveGeminiKey("")}
+                    title="ลบคีย์"
+                    className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 border border-slate-200 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
 
             {/* Presets Grid */}
             <div>
@@ -1210,59 +1258,6 @@ export default function App() {
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Gemini API Key Configuration Toggle & Input */}
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setShowGeminiKeyInput(!showGeminiKeyInput)}
-                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-indigo-600 cursor-pointer transition-colors"
-                >
-                  <Key className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>ตั้งค่า Gemini API Key</span>
-                  <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-normal">
-                    {geminiApiKey ? "✓ บันทึกคีย์แล้ว" : "ทางเลือก/กำหนดเอง"}
-                  </span>
-                </button>
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-[11px] text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-0.5"
-                >
-                  <span>รับคีย์ฟรี</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              </div>
-
-              {(showGeminiKeyInput || !geminiApiKey) && (
-                <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-200/60 mt-1">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="password"
-                      placeholder="วาง Gemini API Key (AIzaSy...)"
-                      value={geminiApiKey}
-                      onChange={(e) => handleSaveGeminiKey(e.target.value)}
-                      className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-400 focus:outline-none placeholder-slate-400"
-                    />
-                    {geminiApiKey && (
-                      <button
-                        type="button"
-                        onClick={() => handleSaveGeminiKey("")}
-                        title="ลบคีย์"
-                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-slate-200/60 rounded-md transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-slate-500 leading-tight">
-                    💡 หากบน Vercel เกิด 500 Server Error คุณสามารถนำ API Key จาก Google AI Studio มาวางในช่องนี้ได้ทันที ระบบจะบันทึกลงเครื่องอัตโนมัติ
-                  </p>
-                </div>
-              )}
             </div>
 
             <button
