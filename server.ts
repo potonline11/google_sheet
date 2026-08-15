@@ -14,6 +14,95 @@ const PORT = 3000;
 // Cache for storing generated image URLs in-memory
 const imageCache = new Map<string, string>();
 
+// API endpoint to test Gemini API Key directly
+app.post("/api/test-gemini-key", async (req, res) => {
+  try {
+    const { geminiApiKey } = req.body || {};
+    const apiKey = (geminiApiKey && typeof geminiApiKey === 'string' && geminiApiKey.trim()) 
+      ? geminiApiKey.trim() 
+      : process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return res.status(400).json({ ok: false, error: "ยังไม่ได้ระบุ Gemini API Key" });
+    }
+
+    const models = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
+    let successModel = "";
+    let lastError: any = null;
+    let modelErrors: { model: string; error: string }[] = [];
+
+    // 1. Try SDK
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      for (const m of models) {
+        try {
+          const resp = await ai.models.generateContent({
+            model: m,
+            contents: "Say 'OK' in 1 word",
+          });
+          if (resp && resp.text) {
+            successModel = m;
+            break;
+          }
+        } catch (e: any) {
+          lastError = e;
+          const msg = e?.message || JSON.stringify(e);
+          modelErrors.push({ model: m, error: msg });
+        }
+      }
+    } catch (sdkErr: any) {
+      lastError = sdkErr;
+    }
+
+    // 2. Fallback to direct REST API if SDK failed
+    if (!successModel) {
+      for (const m of models) {
+        try {
+          const restRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Say 'OK' in 1 word" }] }]
+            })
+          });
+          const restData = await restRes.json();
+          if (restRes.ok && restData.candidates && restData.candidates.length > 0) {
+            successModel = `${m} (REST)`;
+            break;
+          } else {
+            const msg = restData.error?.message || JSON.stringify(restData.error || "");
+            modelErrors.push({ model: `${m} REST`, error: msg });
+            lastError = restData.error || lastError;
+          }
+        } catch (fetchErr: any) {
+          lastError = fetchErr;
+        }
+      }
+    }
+
+    if (successModel) {
+      return res.json({
+        ok: true,
+        model: successModel,
+        message: `เชื่อมต่อสำเร็จ! API Key ใช้งานได้สมบูรณ์ (ผ่านโมเดล ${successModel})`
+      });
+    }
+
+    const firstDetail = modelErrors.find(e => !e.error.includes("not found"))?.error 
+      || modelErrors[0]?.error 
+      || (typeof lastError === 'string' ? lastError : lastError?.message)
+      || JSON.stringify(lastError || "");
+
+    return res.status(400).json({
+      ok: false,
+      error: firstDetail || "ไม่สามารถเชื่อมต่อ Gemini API ได้",
+      modelErrors
+    });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "Server error while testing key" });
+  }
+});
+
 // API endpoint to analyze raw EA text / code and extract Slogan, Features, and HTML code.
 app.post("/api/analyze", async (req, res) => {
   try {
@@ -31,15 +120,6 @@ app.post("/api/analyze", async (req, res) => {
         error: "ยังไม่ได้ระบุ Gemini API Key กรุณากรอก Gemini API Key ในกล่องข้อความ 'ตั้งค่า Gemini API Key' หรือระบุ GEMINI_API_KEY ใน Environment Variables ของเซิร์ฟเวอร์" 
       });
     }
-
-    const ai = new GoogleGenAI({
-      apiKey: apiKey,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
-      }
-    });
 
     const prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
 Given the following raw text, EA trading strategy description, MQL code, or feature request, perform these steps:
@@ -98,30 +178,68 @@ Return your response strictly as a JSON object matching the requested schema. En
     };
 
     let text: string | undefined;
-    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    const modelsToTry = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
     let lastError: any = null;
 
-    for (const model of modelsToTry) {
-      try {
-        const response = await ai.models.generateContent({
-          model: model,
-          contents: prompt,
-          config: schemaConfig
-        });
-        if (response && response.text) {
-          text = response.text;
-          break;
+    // 1. Try with GoogleGenAI SDK
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      for (const model of modelsToTry) {
+        try {
+          const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt,
+            config: schemaConfig
+          });
+          if (response && response.text) {
+            text = response.text;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`Attempt with SDK model ${model} failed:`, err?.message || err);
         }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`Attempt with model ${model} failed:`, err?.message || err);
+      }
+    } catch (e) {
+      lastError = e;
+    }
+
+    // 2. Direct REST fallback if SDK fails
+    if (!text) {
+      for (const model of modelsToTry) {
+        try {
+          const restRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                responseMimeType: "application/json"
+              }
+            })
+          });
+          const restData = await restRes.json();
+          if (restRes.ok && restData.candidates && restData.candidates[0]?.content?.parts?.[0]?.text) {
+            text = restData.candidates[0].content.parts[0].text;
+            break;
+          } else {
+            lastError = restData.error || lastError;
+          }
+        } catch (restErr) {
+          lastError = restErr;
+        }
       }
     }
 
     if (!text) {
-      const errMsg = lastError?.message || "No response received from Gemini";
-      if (errMsg.includes("API key not valid") || errMsg.includes("INVALID_ARGUMENT") || errMsg.includes("API_KEY_INVALID")) {
+      const errMsg = typeof lastError === 'string' ? lastError : (lastError?.message || JSON.stringify(lastError || ""));
+      if (errMsg.includes("API key not valid") || errMsg.includes("API_KEY_INVALID")) {
         return res.status(401).json({ error: "Gemini API Key ไม่ถูกต้อง กรุณาตรวจสอบและคัดลอกคีย์ใหม่อีกครั้งจาก Google AI Studio" });
+      }
+      if (errMsg.includes("blocked") || errMsg.includes("PERMISSION_DENIED")) {
+        return res.status(403).json({ 
+          error: "API Key นี้ถูกจำกัดสิทธิ์ (PERMISSION_DENIED) กรุณาใช้ API Key จากโปรเจกต์อื่น หรือสร้างคีย์ใหม่ใน Google AI Studio" 
+        });
       }
       if (errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("429")) {
         return res.status(429).json({ error: "โควต้าการใช้งาน Gemini API หมดชั่วคราว กรุณารอสักครู่หรือเปลี่ยนไปใช้ API Key อื่น" });

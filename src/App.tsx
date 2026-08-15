@@ -25,7 +25,9 @@ import {
   CheckCircle2,
   ShieldCheck,
   Search,
-  Upload
+  Upload,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { initAuth, googleSignIn, logout, getAccessToken } from "./firebase";
 import { User as FirebaseUser } from "firebase/auth";
@@ -92,6 +94,8 @@ export default function App() {
   // Advanced Integrations states
   const [geminiApiKey, setGeminiApiKey] = useState("");
   const [showGeminiKeyInput, setShowGeminiKeyInput] = useState(false);
+  const [isTestingGeminiKey, setIsTestingGeminiKey] = useState(false);
+  const [geminiKeyTestStatus, setGeminiKeyTestStatus] = useState<{ ok: boolean; message: string; model?: string } | null>(null);
   const [leonardoUsername, setLeonardoUsername] = useState("");
   const [leonardoPassword, setLeonardoPassword] = useState(""); // Can double as API Key
   const [vercelBlobToken, setVercelBlobToken] = useState("");
@@ -185,6 +189,79 @@ export default function App() {
   const handleSaveGeminiKey = (keyVal: string) => {
     setGeminiApiKey(keyVal);
     localStorage.setItem("custom_gemini_api_key", keyVal);
+    setGeminiKeyTestStatus(null);
+  };
+
+  // Test Gemini API Key with dual server & client fallback
+  const handleTestGeminiKey = async (keyToTest?: string) => {
+    const k = (keyToTest !== undefined ? keyToTest : geminiApiKey).trim();
+    if (!k) {
+      setErrorMessage("กรุณาระบุ Gemini API Key ก่อนทำการทดสอบ");
+      return;
+    }
+    setIsTestingGeminiKey(true);
+    setGeminiKeyTestStatus(null);
+    setErrorMessage(null);
+
+    // 1. Try testing via backend API
+    try {
+      const res = await fetch("/api/test-gemini-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ geminiApiKey: k })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setGeminiKeyTestStatus({ ok: true, message: data.message, model: data.model });
+        setIsTestingGeminiKey(false);
+        return;
+      }
+    } catch (serverErr) {
+      console.warn("Backend test failed, falling back to direct browser call...", serverErr);
+    }
+
+    // 2. Direct browser REST API test fallback
+    try {
+      const modelsToTest = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
+      let directSuccess = false;
+      let directErrorMsg = "";
+
+      for (const m of modelsToTest) {
+        try {
+          const directRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${k}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Say 'OK' in 1 word" }] }]
+            })
+          });
+          const dData = await directRes.json();
+          if (directRes.ok && dData.candidates && dData.candidates.length > 0) {
+            directSuccess = true;
+            setGeminiKeyTestStatus({
+              ok: true,
+              message: `เชื่อมต่อสำเร็จ! API Key ใช้งานได้สมบูรณ์ (โมเดล ${m})`,
+              model: m
+            });
+            break;
+          } else {
+            directErrorMsg = dData.error?.message || JSON.stringify(dData.error || "");
+          }
+        } catch (e: any) {
+          directErrorMsg = e.message || String(e);
+        }
+      }
+
+      if (!directSuccess) {
+        setGeminiKeyTestStatus({ ok: false, message: directErrorMsg || "เชื่อมต่อ Gemini ไม่สำเร็จ" });
+        setErrorMessage(`ผลการทดสอบ API Key: ${directErrorMsg}`);
+      }
+    } catch (err: any) {
+      setGeminiKeyTestStatus({ ok: false, message: err.message || "เกิดข้อผิดพลาดในการทดสอบ" });
+      setErrorMessage(`เกิดข้อผิดพลาดในการทดสอบ: ${err.message}`);
+    } finally {
+      setIsTestingGeminiKey(false);
+    }
   };
 
   // Save API credentials to localStorage
@@ -293,7 +370,7 @@ export default function App() {
     }
   };
 
-  // Request analysis from our server-side API proxy
+  // Request analysis from server-side API proxy with direct client fallback
   const handleAnalyze = async () => {
     if (!inputText.trim()) {
       setErrorMessage("กรุณากรอกรายละเอียดหรือเลือกกลยุทธ์ EA เพื่อทำการวิเคราะห์");
@@ -304,30 +381,97 @@ export default function App() {
     setErrorMessage(null);
     setAnalysisResult(null);
 
+    let parsedData: EAContent | null = null;
+    const keyToUse = geminiApiKey.trim();
+
+    // 1. Try server-side API
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           input: inputText,
-          geminiApiKey: geminiApiKey.trim() || undefined
+          geminiApiKey: keyToUse || undefined
         }),
       });
 
-      const data: EAContent = await parseApiResponse(response);
-      setAnalysisResult(data);
-      setCustomImagePrompt(data.imagePrompt || "");
-      setVercelProjectName(data.eaName ? data.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "ea-landing-page");
+      if (response.ok) {
+        parsedData = await response.json();
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || `Server responded with ${response.status}`);
+      }
+    } catch (serverErr: any) {
+      console.warn("Server API failed, trying direct browser Gemini call...", serverErr);
+
+      // 2. Direct browser Gemini API Fallback if user provided a key
+      if (keyToUse) {
+        try {
+          const prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
+Given the following raw text, EA trading strategy description, MQL code, or feature request:
+1. eaName: short unique name (max 4-5 words)
+2. tagline: catchy marketing tagline in Thai (คำโปรย) styled as clean HTML (e.g. '<p class="text-indigo-600 font-bold">...</p>')
+3. featuresSummary: structured trading features in Thai (สรุปฟีเจอร์) as clean semantic HTML ('<ul>', '<li>', '<strong>', '<span>')
+4. htmlCode: stunning visual showcase presentation card in HTML with Tailwind CSS
+5. imagePrompt: detailed English prompt for financial/tech EA marketing visual
+
+Input:
+${inputText}
+
+Return ONLY valid JSON matching this schema:
+{"eaName": "...", "tagline": "...", "featuresSummary": "...", "htmlCode": "...", "imagePrompt": "..."}`;
+
+          const models = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
+          let lastDirectError = "";
+
+          for (const m of models) {
+            try {
+              const directRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${keyToUse}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ parts: [{ text: prompt }] }],
+                  generationConfig: {
+                    responseMimeType: "application/json"
+                  }
+                })
+              });
+              const dJson = await directRes.json();
+              if (directRes.ok && dJson.candidates?.[0]?.content?.parts?.[0]?.text) {
+                const rawText = dJson.candidates[0].content.parts[0].text;
+                parsedData = JSON.parse(rawText);
+                break;
+              } else {
+                lastDirectError = dJson.error?.message || JSON.stringify(dJson.error || "");
+              }
+            } catch (e: any) {
+              lastDirectError = e.message || String(e);
+            }
+          }
+
+          if (!parsedData) {
+            throw new Error(lastDirectError || serverErr.message || "การวิเคราะห์ล้มเหลว");
+          }
+        } catch (directErr: any) {
+          console.error("Direct browser call failed:", directErr);
+          setErrorMessage(directErr.message || serverErr.message || "เกิดข้อผิดพลาดในการวิเคราะห์ด้วย Gemini");
+        }
+      } else {
+        setErrorMessage(serverErr.message || "เกิดข้อผิดพลาดในการวิเคราะห์ด้วย Gemini");
+      }
+    }
+
+    if (parsedData) {
+      setAnalysisResult(parsedData);
+      setCustomImagePrompt(parsedData.imagePrompt || "");
+      setVercelProjectName(parsedData.eaName ? parsedData.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "ea-landing-page");
       setGeneratedImageUrl("");
       setVercelUrl("");
       setGoogleDriveUrl("");
       setActiveTab("tagline");
-    } catch (err: any) {
-      console.error("Analysis failed:", err);
-      setErrorMessage(err.message || "เกิดข้อผิดพลาดในการวิเคราะห์ด้วย Gemini กรุณาลองใหม่อีกครั้ง");
-    } finally {
-      setIsAnalyzing(false);
     }
+
+    setIsAnalyzing(false);
   };
 
   const copyToClipboard = (text: string) => {
@@ -1191,7 +1335,7 @@ export default function App() {
             />
 
             {/* Gemini API Key Configuration Box (Always Prominently Visible) */}
-            <div className="bg-gradient-to-r from-indigo-50/80 to-purple-50/60 border border-indigo-200/80 rounded-xl p-3.5 flex flex-col gap-2.5 shadow-xs">
+            <div className="bg-gradient-to-r from-indigo-50/90 to-purple-50/70 border border-indigo-200 rounded-xl p-3.5 flex flex-col gap-2.5 shadow-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shadow-xs">
@@ -1202,29 +1346,57 @@ export default function App() {
                       Gemini API Key
                     </p>
                     <p className="text-[11px] text-slate-500">
-                      {geminiApiKey ? "✅ บันทึกคีย์พร้อมใช้งานแล้ว" : "⚠️ กรุณาวาง Gemini API Key เพื่อเริ่มวิเคราะห์"}
+                      {geminiApiKey ? "✅ บันทึกคีย์ในเบราว์เซอร์แล้ว" : "⚠️ กรุณาวาง Gemini API Key เพื่อเริ่มวิเคราะห์"}
                     </p>
                   </div>
                 </div>
-                <a
-                  href="https://aistudio.google.com/app/apikey"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 bg-white border border-indigo-200 px-2.5 py-1 rounded-lg shadow-2xs"
-                >
-                  <span>รับคีย์ฟรี</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleTestGeminiKey()}
+                    disabled={isTestingGeminiKey || !geminiApiKey.trim()}
+                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 bg-emerald-100 hover:bg-emerald-200 border border-emerald-300 disabled:opacity-50 px-2.5 py-1 rounded-lg shadow-2xs flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    {isTestingGeminiKey ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                        <span>กำลังทดสอบ...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>ทดสอบคีย์</span>
+                      </>
+                    )}
+                  </button>
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 bg-white border border-indigo-200 px-2.5 py-1 rounded-lg shadow-2xs"
+                  >
+                    <span>รับคีย์ฟรี</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
                 <input
-                  type="password"
+                  type={showGeminiKeyInput ? "text" : "password"}
                   placeholder="วาง Gemini API Key ที่นี่ (ขึ้นต้นด้วย AIzaSy...)"
                   value={geminiApiKey}
                   onChange={(e) => handleSaveGeminiKey(e.target.value)}
                   className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder-slate-400 shadow-2xs"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiKeyInput(!showGeminiKeyInput)}
+                  title={showGeminiKeyInput ? "ซ่อนคีย์" : "แสดงคีย์"}
+                  className="p-2 text-slate-500 hover:text-slate-700 bg-white border border-slate-200 rounded-lg transition-colors"
+                >
+                  {showGeminiKeyInput ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
                 {geminiApiKey && (
                   <button
                     type="button"
@@ -1236,6 +1408,27 @@ export default function App() {
                   </button>
                 )}
               </div>
+
+              {/* Real-time Key Test Result Banner */}
+              {geminiKeyTestStatus && (
+                <div className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
+                  geminiKeyTestStatus.ok 
+                    ? "bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium" 
+                    : "bg-rose-50 text-rose-800 border border-rose-200 font-medium"
+                }`}>
+                  {geminiKeyTestStatus.ok ? (
+                    <>
+                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>{geminiKeyTestStatus.message}</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                      <span className="line-clamp-2">{geminiKeyTestStatus.message}</span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Presets Grid */}
