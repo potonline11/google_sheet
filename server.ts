@@ -17,14 +17,19 @@ const imageCache = new Map<string, string>();
 // API endpoint to analyze raw EA text / code and extract Slogan, Features, and HTML code.
 app.post("/api/analyze", async (req, res) => {
   try {
-    const { input } = req.body || {};
+    const { input, geminiApiKey } = req.body || {};
     if (!input) {
       return res.status(400).json({ error: "Input text is required" });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = (geminiApiKey && typeof geminiApiKey === 'string' && geminiApiKey.trim()) 
+      ? geminiApiKey.trim() 
+      : process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
-      return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server. Please add GEMINI_API_KEY to your Vercel Environment Variables." });
+      return res.status(400).json({ 
+        error: "ยังไม่ได้ระบุ Gemini API Key กรุณากรอก Gemini API Key ในกล่องข้อความ 'ตั้งค่า Gemini API Key' หรือระบุ GEMINI_API_KEY ใน Environment Variables ของเซิร์ฟเวอร์" 
+      });
     }
 
     const ai = new GoogleGenAI({
@@ -62,43 +67,66 @@ ${input}
 
 Return your response strictly as a JSON object matching the requested schema. Ensure that your output does not wrap the JSON keys with any formatting or code blocks inside the text fields. Thai text must be grammatically correct and persuasive.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            eaName: {
-              type: Type.STRING,
-              description: "The name of the Expert Advisor (EA)."
-            },
-            tagline: {
-              type: Type.STRING,
-              description: "A persuasive, catchy marketing tagline in Thai (คำโปรย) written as ready-to-use HTML code."
-            },
-            featuresSummary: {
-              type: Type.STRING,
-              description: "Structured trading features and settings in Thai (สรุปฟีเจอร์) formatted entirely as clean, styled semantic HTML code (e.g. ul/li/strong/span)."
-            },
-            htmlCode: {
-              type: Type.STRING,
-              description: "Stunning visual presentation card styled with Tailwind CSS in HTML."
-            },
-            imagePrompt: {
-              type: Type.STRING,
-              description: "Detailed English image generation prompt for Leonardo.ai representing the EA."
-            }
+    const schemaConfig = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          eaName: {
+            type: Type.STRING,
+            description: "The name of the Expert Advisor (EA)."
           },
-          required: ["eaName", "tagline", "featuresSummary", "htmlCode", "imagePrompt"]
-        }
+          tagline: {
+            type: Type.STRING,
+            description: "A persuasive, catchy marketing tagline in Thai (คำโปรย) written as ready-to-use HTML code."
+          },
+          featuresSummary: {
+            type: Type.STRING,
+            description: "Structured trading features and settings in Thai (สรุปฟีเจอร์) formatted entirely as clean, styled semantic HTML code (e.g. ul/li/strong/span)."
+          },
+          htmlCode: {
+            type: Type.STRING,
+            description: "Stunning visual presentation card styled with Tailwind CSS in HTML."
+          },
+          imagePrompt: {
+            type: Type.STRING,
+            description: "Detailed English image generation prompt for Leonardo.ai representing the EA."
+          }
+        },
+        required: ["eaName", "tagline", "featuresSummary", "htmlCode", "imagePrompt"]
       }
-    });
+    };
 
-    const text = response.text;
+    let text: string | undefined;
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"];
+    let lastError: any = null;
+
+    for (const model of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: model,
+          contents: prompt,
+          config: schemaConfig
+        });
+        if (response && response.text) {
+          text = response.text;
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`Attempt with model ${model} failed:`, err?.message || err);
+      }
+    }
+
     if (!text) {
-      throw new Error("No response received from Gemini.");
+      const errMsg = lastError?.message || "No response received from Gemini";
+      if (errMsg.includes("API key not valid") || errMsg.includes("INVALID_ARGUMENT") || errMsg.includes("API_KEY_INVALID")) {
+        return res.status(401).json({ error: "Gemini API Key ไม่ถูกต้อง กรุณาตรวจสอบและคัดลอกคีย์ใหม่อีกครั้งจาก Google AI Studio" });
+      }
+      if (errMsg.includes("quota") || errMsg.includes("RESOURCE_EXHAUSTED") || errMsg.includes("429")) {
+        return res.status(429).json({ error: "โควต้าการใช้งาน Gemini API หมดชั่วคราว กรุณารอสักครู่หรือเปลี่ยนไปใช้ API Key อื่น" });
+      }
+      throw new Error(`การเชื่อมต่อ Gemini ล้มเหลว: ${errMsg}`);
     }
 
     let result: any;

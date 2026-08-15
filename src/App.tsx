@@ -90,6 +90,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<"tagline" | "features" | "imagePrompt" | "leonardo" | "drive" | "vercel">("tagline");
 
   // Advanced Integrations states
+  const [geminiApiKey, setGeminiApiKey] = useState("");
+  const [showGeminiKeyInput, setShowGeminiKeyInput] = useState(false);
   const [leonardoUsername, setLeonardoUsername] = useState("");
   const [leonardoPassword, setLeonardoPassword] = useState(""); // Can double as API Key
   const [vercelBlobToken, setVercelBlobToken] = useState("");
@@ -172,7 +174,18 @@ export default function App() {
       setVercelBlobToken(savedBlobToken);
       setVercelToken(savedBlobToken);
     }
+
+    const savedGeminiKey = localStorage.getItem("custom_gemini_api_key");
+    if (savedGeminiKey) {
+      setGeminiApiKey(savedGeminiKey);
+    }
   }, []);
+
+  // Save Gemini API Key
+  const handleSaveGeminiKey = (keyVal: string) => {
+    setGeminiApiKey(keyVal);
+    localStorage.setItem("custom_gemini_api_key", keyVal);
+  };
 
   // Save API credentials to localStorage
   const handleSaveLeonardoCreds = (userVal: string, passVal: string) => {
@@ -295,7 +308,10 @@ export default function App() {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input: inputText }),
+        body: JSON.stringify({ 
+          input: inputText,
+          geminiApiKey: geminiApiKey.trim() || undefined
+        }),
       });
 
       const data: EAContent = await parseApiResponse(response);
@@ -1194,6 +1210,59 @@ export default function App() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Gemini API Key Configuration Toggle & Input */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiKeyInput(!showGeminiKeyInput)}
+                  className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 hover:text-indigo-600 cursor-pointer transition-colors"
+                >
+                  <Key className="w-3.5 h-3.5 text-indigo-500" />
+                  <span>ตั้งค่า Gemini API Key</span>
+                  <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.2 rounded font-normal">
+                    {geminiApiKey ? "✓ บันทึกคีย์แล้ว" : "ทางเลือก/กำหนดเอง"}
+                  </span>
+                </button>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[11px] text-indigo-600 hover:text-indigo-700 hover:underline flex items-center gap-0.5"
+                >
+                  <span>รับคีย์ฟรี</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+
+              {(showGeminiKeyInput || !geminiApiKey) && (
+                <div className="flex flex-col gap-1.5 pt-1 border-t border-slate-200/60 mt-1">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      placeholder="วาง Gemini API Key (AIzaSy...)"
+                      value={geminiApiKey}
+                      onChange={(e) => handleSaveGeminiKey(e.target.value)}
+                      className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-indigo-400 focus:outline-none placeholder-slate-400"
+                    />
+                    {geminiApiKey && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveGeminiKey("")}
+                        title="ลบคีย์"
+                        className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-slate-200/60 rounded-md transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    💡 หากบน Vercel เกิด 500 Server Error คุณสามารถนำ API Key จาก Google AI Studio มาวางในช่องนี้ได้ทันที ระบบจะบันทึกลงเครื่องอัตโนมัติ
+                  </p>
+                </div>
+              )}
             </div>
 
             <button
