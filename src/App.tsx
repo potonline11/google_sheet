@@ -27,11 +27,42 @@ import {
   Search,
   Upload,
   Eye,
-  EyeOff
+  EyeOff,
+  Wand2,
+  Dices,
+  Layers
 } from "lucide-react";
 import { initAuth, googleSignIn, logout, getAccessToken } from "./firebase";
 import { User as FirebaseUser } from "firebase/auth";
 import { EAContent, GoogleSheetInfo } from "./types";
+
+const IMAGE_STYLE_PRESETS = [
+  {
+    id: "hologram-matrix",
+    name: "📊 กราฟโฮโลแกรม 3D",
+    promptSuffix: "3D futuristic holographic forex trading matrix with glowing green and golden candlestick charts, floating multi-currency tickers (EURUSD, GBPUSD, XAUUSD), dark high-tech financial command station, volumetric emerald and cyan lighting, octane render, 8k resolution, photorealistic"
+  },
+  {
+    id: "ai-robot-trader",
+    name: "🤖 หุ่นยนต์เทรดเดอร์ AI",
+    promptSuffix: "futuristic sleek metallic AI android trading robot sitting at a high-tech command desk analyzing real-time financial market charts, neon blue and gold trading indicators, titanium textures, cinematic dramatic lighting, photorealistic, 8k resolution"
+  },
+  {
+    id: "golden-bull",
+    name: "🐂 กระทิงทองคำวอลล์สตรีท",
+    promptSuffix: "majestic glowing cybernetic golden Wall Street bull standing atop a mountain of rising green candlestick charts, laser data streams, dark luxury titanium background, dramatic volumetric lighting, 8k commercial masterpiece"
+  },
+  {
+    id: "pro-desk",
+    name: "💻 สเตชั่นโต๊ะเทรดมือโปร",
+    promptSuffix: "sleek curved OLED multi-screen trading monitors displaying real-time MT5 algorithmic EA trading bots, glowing green profit lines, dark mode fintech workstation, ambient gold and emerald neon glow, professional forex trading room, 8k"
+  },
+  {
+    id: "quantum-core",
+    name: "🌐 เครือข่ายควอนตัม Forex",
+    promptSuffix: "futuristic glowing quantum neural network processing global currency pairs, floating golden fibonacci spirals and forex candlestick data, dark cybernetic fintech background, cinematic 8k render"
+  }
+];
 
 const PRESETS = [
   {
@@ -410,7 +441,7 @@ Given the following raw text, EA trading strategy description, MQL code, or feat
 2. tagline: catchy marketing tagline in Thai (คำโปรย) styled as clean HTML (e.g. '<p class="text-indigo-600 font-bold">...</p>')
 3. featuresSummary: structured trading features in Thai (สรุปฟีเจอร์) as clean semantic HTML ('<ul>', '<li>', '<strong>', '<span>')
 4. htmlCode: stunning visual showcase presentation card in HTML with Tailwind CSS
-5. imagePrompt: detailed English prompt for financial/tech EA marketing visual
+5. imagePrompt: rich, vivid English prompt for financial/forex EA marketing visual (e.g. 3D holographic forex charts, golden Wall Street bull, cybernetic trading bot, multi-currency matrix, dark titanium workstation, 8k octane render, cinematic lighting, photorealistic). Strictly avoid blurry pedestals or empty plates.
 
 Input:
 ${inputText}
@@ -791,7 +822,25 @@ Return ONLY valid JSON matching this schema:
     const widthNum = parseInt(widthStr, 10) || 1024;
     const heightNum = parseInt(heightStr, 10) || 1024;
     const finalModelId = leonardoModel === "custom" ? customModelId.trim() : leonardoModel;
-    const safePrompt = customImagePrompt || analysisResult.imagePrompt || "A sleek futuristic EA Trading Bot presentation card, financial neon candlesticks, 3d render, hyperrealistic";
+    
+    // Auto-enrich the prompt to ensure it generates high-converting, professional trading graphics
+    const buildEnrichedPrompt = (basePrompt: string) => {
+      let p = (basePrompt || "").trim();
+      if (!p) {
+        p = analysisResult?.eaName 
+          ? `3D futuristic high-tech presentation graphic for '${analysisResult.eaName}' MT5 Forex Expert Advisor, glowing green and gold candlestick charts, multi-currency matrix`
+          : "3D futuristic high-tech presentation graphic for MetaTrader 5 Forex Expert Advisor, glowing green and gold candlestick charts";
+      }
+      if (!p.toLowerCase().includes("candlestick") && !p.toLowerCase().includes("trading") && !p.toLowerCase().includes("forex")) {
+        p += ", glowing financial candlestick charts, high-tech fintech trading visual";
+      }
+      if (!p.toLowerCase().includes("8k") && !p.toLowerCase().includes("octane")) {
+        p += ", 3D octane render, 8k resolution, photorealistic cinematic lighting, ultra-detailed fintech advertising";
+      }
+      return p;
+    };
+
+    const finalSafePrompt = buildEnrichedPrompt(customImagePrompt || analysisResult.imagePrompt || "");
 
     try {
       const sanitizedKey = (leonardoPassword || "").trim();
@@ -806,7 +855,7 @@ Return ONLY valid JSON matching this schema:
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: safePrompt,
+            prompt: finalSafePrompt,
             clientApiKey: (leonardoModel === "free-pollinations" || leonardoModel === "gemini-imagen") ? "free" : leonardoPassword,
             geminiApiKey: geminiApiKey.trim() || undefined,
             width: widthNum,
@@ -822,7 +871,7 @@ Return ONLY valid JSON matching this schema:
         // Fallback: If free generation fails on server, directly construct client URL
         if (leonardoModel === "free-pollinations" || !leonardoPassword.trim()) {
           const randomSeed = Math.floor(Math.random() * 1000000);
-          const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+          const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalSafePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&seed=${randomSeed}&model=flux`;
           setGeneratedImageUrl(directUrl);
           setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
           setIsGeneratingImage(false);
@@ -835,7 +884,7 @@ Return ONLY valid JSON matching this schema:
       if (!generationId) {
         // Fallback directly
         const randomSeed = Math.floor(Math.random() * 1000000);
-        const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+        const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalSafePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&seed=${randomSeed}&model=flux`;
         setGeneratedImageUrl(directUrl);
         setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
         setIsGeneratingImage(false);
@@ -905,7 +954,7 @@ Return ONLY valid JSON matching this schema:
       console.error("Leonardo error:", err);
       // If error occurs, fallback to direct Pollinations image so user is never blocked
       const randomSeed = Math.floor(Math.random() * 1000000);
-      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalSafePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&seed=${randomSeed}&model=flux`;
       setGeneratedImageUrl(fallbackUrl);
       setLeonardoStatus("สร้างภาพสำเร็จด้วยระบบสำรอง!");
       setIsGeneratingImage(false);
@@ -1962,8 +2011,59 @@ Return ONLY valid JSON matching this schema:
                       </select>
                     </div>
 
+                    {/* Style presets selector */}
+                    <div className="flex flex-col gap-1.5 mt-1">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                          <Wand2 className="w-3 h-3 text-pink-500" /> เลือกสไตล์ภาพกราฟิก EA
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (analysisResult?.imagePrompt) {
+                              setCustomImagePrompt(analysisResult.imagePrompt);
+                            } else if (analysisResult?.eaName) {
+                              setCustomImagePrompt(`3D futuristic high-tech presentation graphic for '${analysisResult.eaName}' MT5 Forex Expert Advisor, glowing green and gold candlestick charts, multi-currency holographic matrix, octane render, 8k resolution, cinematic lighting, masterpiece`);
+                            }
+                          }}
+                          className="text-[9px] text-pink-600 font-semibold hover:underline flex items-center gap-0.5"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" /> ค่าเริ่มต้น AI
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {IMAGE_STYLE_PRESETS.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() => {
+                              const eaTitle = analysisResult?.eaName || "Forex EA Trading Bot";
+                              setCustomImagePrompt(`A premium commercial presentation visual for '${eaTitle}', ${preset.promptSuffix}`);
+                            }}
+                            className="text-[10px] font-semibold text-slate-700 bg-white hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 border border-slate-200 rounded-lg p-1.5 text-left transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                          >
+                            <span>{preset.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="flex flex-col gap-1 mt-1">
-                      <label className="text-[10px] font-bold text-slate-500">Prompt เจนภาพโฆษณา</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-500">Prompt เจนภาพโฆษณา</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = customImagePrompt || analysisResult?.imagePrompt || "";
+                            if (!cur.includes("candlestick") && !cur.includes("forex")) {
+                              setCustomImagePrompt(`${cur}, glowing financial candlestick charts, high-tech fintech trading visual, 3D octane render, 8k resolution, photorealistic cinematic lighting`);
+                            }
+                          }}
+                          className="text-[9px] text-indigo-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <Sparkles className="w-2.5 h-2.5" /> บูสต์ความคมชัด 8K
+                        </button>
+                      </div>
                       <textarea
                         value={customImagePrompt}
                         onChange={(e) => setCustomImagePrompt(e.target.value)}
@@ -1975,21 +2075,31 @@ Return ONLY valid JSON matching this schema:
 
                   <div className="mt-2 flex flex-col gap-2">
                     {generatedImageUrl && (
-                      <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-900 flex flex-col items-center p-2">
+                      <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-950 flex flex-col items-center p-2.5 gap-2 shadow-inner">
                         <img 
                           src={generatedImageUrl} 
                           alt="AI Generated" 
-                          className="w-full h-auto max-h-[120px] object-contain rounded-md"
+                          className="w-full h-auto max-h-[140px] object-contain rounded-md shadow-md"
                           referrerPolicy="no-referrer"
                         />
-                        <a 
-                          href={generatedImageUrl} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="text-[10px] text-pink-400 hover:underline font-bold mt-1.5 inline-flex items-center gap-1"
-                        >
-                          เปิดดูภาพขนาดเต็ม <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
+                        <div className="w-full flex items-center justify-between pt-1 border-t border-slate-800 text-[10px]">
+                          <a 
+                            href={generatedImageUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="text-pink-400 hover:underline font-bold inline-flex items-center gap-1"
+                          >
+                            เปิดภาพเต็ม <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                          <button
+                            type="button"
+                            onClick={handleGenerateLeonardoImage}
+                            disabled={isGeneratingImage}
+                            className="text-emerald-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                          >
+                            <Dices className="w-3 h-3" /> สุ่มรูปใหม่ (Reroll)
+                          </button>
+                        </div>
                       </div>
                     )}
 

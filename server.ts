@@ -132,10 +132,14 @@ Given the following raw text, EA trading strategy description, MQL code, or feat
    - Do NOT include <html>, <head>, or <body> tags. Just raw styled Tailwind elements.
    - Ensure all images/icons are clean and from Lucide/Heroicons if any, or simple CSS circles/shapes.
    - The HTML code should be robust, professional, and readable.
-5. Create a highly descriptive English image generation prompt tailored for Leonardo.ai or Flux/Pollinations to generate a stunning, professional, and commercial-grade marketing visual representing this EA.
-   - CRITICAL QUALITY CONTROL: The visual must look like a premium corporate financial or fintech product (e.g., sleek futuristic AI trading terminal, a smart metallic trading bot with glowing blue/green/amber charts, elegant gold bulls/bears representations, or high-tech automated trading consoles).
-   - AVOID CHILDISH/LITERAL INTERPRETATIONS: If the EA's name contains metaphorical or whimsical terms (like "Lollipop", "Rabbit", "Candy", "Dragon", "Phoenix", etc.), DO NOT generate literal candies, sweets, rabbits, or toys. Instead, interpret them as a sleek modern tech-branding concept. For example, if the name is "Lollipop", represent it as a professional, abstract high-tech corporate icon, a glowing geometric sphere representing market data, or a cybernetic trading terminal with an emblem decal. Never make actual lollipops, foods, or cartoonish characters.
-   - STYLE: Cinematic lighting, 3D digital art, octane render, futuristic, clean professional aesthetic, high contrast, dark high-tech slate/indigo background with vibrant neon accents (green/blue/amber), photorealistic, 8k resolution, commercial advertising style.
+5. Create a highly descriptive, cinematic English image generation prompt tailored for Leonardo.ai or Flux to generate a stunning, commercial-grade marketing visual representing this EA.
+   - CRITICAL QUALITY CONTROL: The visual must represent high-end fintech, algorithmic trading, or forex automation. It should feature concrete visual elements such as:
+     * A high-tech 3D holographic trading terminal with vibrant glowing green and gold candlestick charts, multiple currency pair displays (EURUSD, GBPUSD, XAUUSD).
+     * An ultra-sleek metallic AI cybernetic trading bot analyzing neon financial market trends in a futuristic trading control room.
+     * A magnificent glowing golden Wall Street bull surrounded by dynamic laser candlestick graphs and matrix data streams.
+     * An ultra-luxury multi-screen trading command center with real-time MT5 algorithmic trade graphs.
+   - STRICT NEGATIVE CONSTRAINTS: DO NOT generate abstract blurry pedestals, circular table disks, empty plates, non-descript blue circles, toys, or candies. Even if the EA name is whimsical, interpret it as a cutting-edge futuristic financial technology brand.
+   - STYLE BOOSTER KEYWORDS: 3D octane digital render, volumetric cinematic lighting, photorealistic 8k resolution, dark titanium and midnight blue background with emerald green and gold glowing accents, high contrast, commercial advertising masterpiece.
 
 CRITICAL DESIGN REQUIREMENT FOR HTML / TEXT FIELDS:
 - DO NOT use any HTML character entities or encodings like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;' inside the Thai text fields or HTML wrappers.
@@ -361,7 +365,12 @@ app.post("/api/leonardo/generate", async (req, res) => {
     // 2. Check if user selected the free generator or does not have Leonardo key
     if (modelId === "free-pollinations" || modelId === "gemini-imagen" || !clientApiKey || clientApiKey === "free") {
       const randomSeed = Math.floor(Math.random() * 1000000);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${finalWidth}&height=${finalHeight}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+      // Ensure high-converting fintech visual keywords are appended
+      const enrichedPrompt = safePrompt.includes("candlestick") || safePrompt.includes("forex")
+        ? safePrompt
+        : `${safePrompt}, high-tech 3D forex trading charts, glowing green and gold candlestick bars, cyberpunk financial workstation, octane render, 8k resolution, cinematic lighting, hyper-detailed`;
+        
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enrichedPrompt)}?width=${finalWidth}&height=${finalHeight}&nologo=true&seed=${randomSeed}&model=flux`;
       
       const generationId = `free-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       imageCache.set(generationId, imageUrl);
