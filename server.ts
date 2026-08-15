@@ -325,50 +325,54 @@ app.post("/api/leonardo/generate", async (req, res) => {
         });
       }
 
-      try {
-        const ai = new GoogleGenAI({ apiKey: activeGeminiKey });
-        const imgResponse = await ai.models.generateContent({
-          model: "gemini-3.1-flash-image",
-          contents: {
-            parts: [{ text: safePrompt }]
-          },
-          config: {
-            imageConfig: {
-              aspectRatio: "1:1"
-            }
-          }
-        });
+      const geminiImageModels = ["gemini-3.1-flash-image", "gemini-3.1-flash-lite-image"];
+      let foundImageUrl = "";
 
-        let foundImageUrl = "";
-        const parts = imgResponse.candidates?.[0]?.content?.parts || [];
-        for (const part of parts) {
-          if (part.inlineData && part.inlineData.data) {
-            foundImageUrl = `data:image/png;base64,${part.inlineData.data}`;
-            break;
-          }
-        }
-
-        if (foundImageUrl) {
-          const genId = `gemini-img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-          imageCache.set(genId, foundImageUrl);
-          return res.json({
-            sdGenerationJob: {
-              generationId: genId
+      for (const imgModel of geminiImageModels) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: activeGeminiKey });
+          const imgResponse = await ai.models.generateContent({
+            model: imgModel,
+            contents: {
+              parts: [{ text: safePrompt }]
+            },
+            config: {
+              imageConfig: {
+                aspectRatio: "1:1"
+              }
             }
           });
+
+          const parts = imgResponse.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.inlineData && part.inlineData.data) {
+              foundImageUrl = `data:image/png;base64,${part.inlineData.data}`;
+              break;
+            }
+          }
+
+          if (foundImageUrl) {
+            const genId = `gemini-img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+            imageCache.set(genId, foundImageUrl);
+            return res.json({
+              sdGenerationJob: {
+                generationId: genId
+              }
+            });
+          }
+        } catch (geminiImgErr: any) {
+          console.warn(`Gemini Image model ${imgModel} failed:`, geminiImgErr?.message || geminiImgErr);
         }
-      } catch (geminiImgErr: any) {
-        console.warn("Gemini Image generation failed, falling back to Free generator:", geminiImgErr?.message || geminiImgErr);
       }
     }
 
-    // 2. Check if user selected the free generator or does not have Leonardo key
+    // 2. Free generator with clean, concrete forex/fintech photographic prompts
     if (modelId === "free-pollinations" || modelId === "gemini-imagen" || !clientApiKey || clientApiKey === "free") {
       const randomSeed = Math.floor(Math.random() * 1000000);
-      // Ensure high-converting fintech visual keywords are appended
-      const enrichedPrompt = safePrompt.includes("candlestick") || safePrompt.includes("forex")
-        ? safePrompt
-        : `${safePrompt}, high-tech 3D forex trading charts, glowing green and gold candlestick bars, cyberpunk financial workstation, octane render, 8k resolution, cinematic lighting, hyper-detailed`;
+      
+      // Clean up prompt to guarantee high quality concrete subject (avoid abstract table slabs)
+      const cleanSubject = "photograph of a high-tech financial trading workstation with glowing neon green forex candlestick charts, MT5 automated trading bots, holographic currency exchange indicators, dark futuristic trading room";
+      const enrichedPrompt = `${cleanSubject}, ${safePrompt}, professional 8k resolution, volumetric cinematic lighting, octane render`;
         
       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enrichedPrompt)}?width=${finalWidth}&height=${finalHeight}&nologo=true&seed=${randomSeed}&model=flux`;
       

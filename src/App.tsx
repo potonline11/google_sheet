@@ -64,6 +64,45 @@ const IMAGE_STYLE_PRESETS = [
   }
 ];
 
+const INSTANT_PRO_TRADING_GALLERY = [
+  {
+    id: "candlestick-pro",
+    title: "📈 กราฟแท่งเทียน MT5 & เรดาร์เทรด",
+    badge: "Most Popular",
+    url: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "ai-bot-fintech",
+    title: "🤖 หุ่นยนต์ AI Cybernetic Forex",
+    badge: "AI Concept",
+    url: "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "bull-market-gold",
+    title: "🐂 ตลาดกระทิงทองคำ & กราฟกำไร",
+    badge: "High Profit",
+    url: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "multi-desk-station",
+    title: "💻 จอมอนิเตอร์มัลติเทรดดิ้งรูม",
+    badge: "Pro Trader",
+    url: "https://images.unsplash.com/photo-1642790106117-e829e14a795f?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "quantum-network",
+    title: "🌐 บล็อกเชนควอนตัม & ฟินเทค",
+    badge: "Ultra Tech",
+    url: "https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "dark-fintech-dashboard",
+    title: "📊 แดชบอร์ดเทรดดาร์กโหมด",
+    badge: "Clean MT5",
+    url: "https://images.unsplash.com/photo-1535320903710-d993d3d77d29?auto=format&fit=crop&w=1200&q=80"
+  }
+];
+
 const PRESETS = [
   {
     name: "RSI Scalper Grid (Martingale)",
@@ -138,6 +177,7 @@ export default function App() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [leonardoStatus, setLeonardoStatus] = useState("");
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
+  const [imageWorkshopTab, setImageWorkshopTab] = useState<"instant" | "ai">("instant");
 
   // Google Drive files browser states
   const [googleDriveFiles, setGoogleDriveFiles] = useState<any[]>([]);
@@ -493,7 +533,8 @@ Return ONLY valid JSON matching this schema:
       setAnalysisResult(parsedData);
       setCustomImagePrompt(parsedData.imagePrompt || "");
       setVercelProjectName(parsedData.eaName ? parsedData.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "ea-landing-page");
-      setGeneratedImageUrl("");
+      setGeneratedImageUrl(INSTANT_PRO_TRADING_GALLERY[0].url);
+      setLeonardoStatus("โหลดภาพกราฟแท่งเทียน MT5 คมชัด 8K พร้อมใช้งาน");
       setVercelUrl("");
       setGoogleDriveUrl("");
       setActiveTab("tagline");
@@ -1910,167 +1951,268 @@ Return ONLY valid JSON matching this schema:
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Panel 1: Image Generator */}
+                {/* Panel 1: Image Generator & Instant Pro Gallery */}
                 <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3 justify-between">
                   <div className="flex flex-col gap-2.5">
-                    <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                      <div className="bg-pink-100 text-pink-600 p-1.5 rounded-lg">
-                        <ImageIcon className="w-4 h-4" />
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                        <div className="bg-pink-100 text-pink-600 p-1.5 rounded-lg">
+                          <ImageIcon className="w-4 h-4" />
+                        </div>
+                        <span>1. รูปภาพหน้าปก EA (8K Visuals)</span>
                       </div>
-                      <span>1. สั่งสร้างรูปภาพด้วย AI</span>
                     </div>
 
-                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                      สร้างภาพประกอบ EA สวยๆ ด้วย <strong>Free AI Generator (Flux Engine)</strong> โดยไม่ต้องมีรหัสคีย์ใดๆ หรือสลับเป็นโมเดลของ Leonardo.ai
-                    </p>
-
-                    <div className="flex flex-col gap-1 mt-1">
-                      <label className="text-[10px] font-bold text-slate-500">
-                        โมเดล AI ที่ใช้เจนภาพ (AI Model)
-                      </label>
-                      <select
-                        value={leonardoModel}
-                        onChange={(e) => {
-                          setLeonardoModel(e.target.value);
-                          localStorage.setItem("leonardo_model", e.target.value);
-                        }}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                    {/* Mode switch tabs */}
+                    <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setImageWorkshopTab("instant")}
+                        className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                          imageWorkshopTab === "instant"
+                            ? "bg-white text-pink-600 shadow-xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
                       >
-                        <option value="free-pollinations">✨ Free AI Generator (ฟรี ไม่ต้องใช้คีย์ - แนะนำที่สุด)</option>
-                        <option value="gemini-imagen">✨ Google Gemini Imagen 3 (ใช้คีย์ Gemini ด้านบน)</option>
-                        <option value="6bef9f1b-71cb-40e7-96a2-21e14026187e">Leonardo Phoenix (ลายเส้นคมชัด สะกดคำแม่น)</option>
-                        <option value="5c232a9e-9040-4777-9f40-7e15c54047f0">Leonardo Vision XL (ภาพถ่ายเสมือนจริง 3D / Realistic)</option>
-                        <option value="e1a32a61-3813-4907-94d8-7e39f37c4d37">Leonardo Diffusion XL (ภาพวาด งานอาร์ต แฟนตาซี)</option>
-                        <option value="a72dfd34-4a4a-4ab7-b8f4-6338fb50cf00">AlbedoBase XL (3D Render, เวกเตอร์, อนิเมะ)</option>
-                        <option value="1e60fcdb-a3a6-4bc0-b78d-177303d09a54">Stable Diffusion XL 1.0 (สแตนดาร์ด SDXL)</option>
-                        <option value="custom">Custom Model ID (ระบุรหัสด้วยตนเอง)</option>
-                      </select>
-                    </div>
-
-                    {leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && (
-                      <div className="flex flex-col gap-1 mt-1 border border-pink-100 p-2.5 rounded-lg bg-pink-50/30">
-                        <label className="text-[10px] font-bold text-pink-700 flex items-center gap-1">
-                          <Key className="w-3 h-3 text-pink-500" /> คีย์ API ของ Leonardo.ai
-                        </label>
-                        <input
-                          type="password"
-                          value={leonardoPassword}
-                          onChange={(e) => {
-                            setLeonardoPassword(e.target.value);
-                            localStorage.setItem("leonardo_password", e.target.value);
-                          }}
-                          placeholder="วาง API Key (รูปแบบ UUID เช่น 9f677511-xxxx-...)"
-                          className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-mono"
-                        />
-                        {leonardoPassword.trim().includes("@") && (
-                          <span className="text-[10px] text-pink-600 font-semibold block mt-1 leading-normal">
-                            ⚠️ ตรวจพบอีเมล: การใช้ API จะไม่รองรับ Gmail/รหัสผ่านเข้าสู่ระบบโดยตรง โปรดใช้ Leonardo API Key ในรูปแบบรหัส UUID (36 ตัวอักษร)
-                          </span>
-                        )}
-                        <span className="text-[9px] text-slate-500 mt-1 block">
-                          💡 สมัครและรับคีย์ฟรีที่ <a href="https://app.leonardo.ai/" target="_blank" rel="noreferrer" className="underline font-semibold text-pink-600 hover:text-pink-700">app.leonardo.ai</a> เมนู API Access
-                        </span>
-                      </div>
-                    )}
-
-                    {leonardoModel === "custom" && (
-                      <div className="flex flex-col gap-1 mt-1">
-                        <label className="text-[10px] font-bold text-slate-500">
-                          รหัสโมเดลแบบกำหนดเอง (Custom Model ID)
-                        </label>
-                        <input
-                          type="text"
-                          value={customModelId}
-                          onChange={(e) => {
-                            setCustomModelId(e.target.value);
-                            localStorage.setItem("leonardo_custom_model_id", e.target.value);
-                          }}
-                          placeholder="ระบุรหัสโมเดล เช่น b2449217-..."
-                          className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-mono"
-                        />
-                      </div>
-                    )}
-
-                    <div className="flex flex-col gap-1 mt-1">
-                      <label className="text-[10px] font-bold text-slate-500">
-                        ขนาดภาพ / สัดส่วน (Dimensions)
-                      </label>
-                      <select
-                        value={leonardoDimension}
-                        onChange={(e) => {
-                          setLeonardoDimension(e.target.value);
-                          localStorage.setItem("leonardo_dimension", e.target.value);
-                        }}
-                        className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                        <Layers className="w-3.5 h-3.5 text-pink-500" />
+                        <span>⚡ คลังภาพ EA 8K ทันที</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageWorkshopTab("ai")}
+                        className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                          imageWorkshopTab === "ai"
+                            ? "bg-white text-indigo-600 shadow-xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
                       >
-                        <option value="1024x1024">1:1 Square (1024x1024) - แนะนำที่สุด</option>
-                        <option value="1024x576">16:9 Wide (1024x576) - เหมาะสำหรับแบนเนอร์กว้าง</option>
-                        <option value="1024x768">4:3 Standard (1024x768) - มิติคลาสสิก</option>
-                        <option value="768x1024">3:4 Portrait (768x1024) - สัดส่วนแนวตั้ง</option>
-                        <option value="512x512">1:1 Small (512x512) - เจนเนอเรตเร็ว/ใช้เครดิตน้อย</option>
-                      </select>
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>🎨 สั่งเจนภาพ AI สด</span>
+                      </button>
                     </div>
 
-                    {/* Style presets selector */}
-                    <div className="flex flex-col gap-1.5 mt-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
-                          <Wand2 className="w-3 h-3 text-pink-500" /> เลือกสไตล์ภาพกราฟิก EA
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (analysisResult?.imagePrompt) {
-                              setCustomImagePrompt(analysisResult.imagePrompt);
-                            } else if (analysisResult?.eaName) {
-                              setCustomImagePrompt(`3D futuristic high-tech presentation graphic for '${analysisResult.eaName}' MT5 Forex Expert Advisor, glowing green and gold candlestick charts, multi-currency holographic matrix, octane render, 8k resolution, cinematic lighting, masterpiece`);
-                            }
-                          }}
-                          className="text-[9px] text-pink-600 font-semibold hover:underline flex items-center gap-0.5"
-                        >
-                          <Sparkles className="w-2.5 h-2.5" /> ค่าเริ่มต้น AI
-                        </button>
+                    {imageWorkshopTab === "instant" ? (
+                      /* Instant 8K Trading Gallery */
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          เลือกภาพกราฟิก EA ระดับมืออาชีพ 8K คมชัดระดับสตูดิโอ คลิกเลือกเพื่อนำไปใช้และฝากไฟล์ได้ทันที:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-0.5">
+                          {INSTANT_PRO_TRADING_GALLERY.map((item) => {
+                            const isSelected = generatedImageUrl === item.url;
+                            return (
+                              <div
+                                key={item.id}
+                                onClick={() => {
+                                  setGeneratedImageUrl(item.url);
+                                  setLeonardoStatus(`เลือกภาพ: ${item.title} สำเร็จ!`);
+                                }}
+                                className={`group relative rounded-lg overflow-hidden border cursor-pointer transition-all ${
+                                  isSelected 
+                                    ? "border-pink-500 ring-2 ring-pink-500/20 shadow-md" 
+                                    : "border-slate-200 hover:border-pink-300 hover:shadow-xs"
+                                }`}
+                              >
+                                <div className="h-20 w-full overflow-hidden bg-slate-900">
+                                  <img 
+                                    src={item.url} 
+                                    alt={item.title} 
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                </div>
+                                <div className="p-1.5 bg-white flex flex-col gap-0.5">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] font-bold text-slate-700 truncate">{item.title}</span>
+                                  </div>
+                                  <span className="text-[8px] font-semibold text-pink-600 bg-pink-50 self-start px-1 rounded">
+                                    {item.badge}
+                                  </span>
+                                </div>
+                                {isSelected && (
+                                  <div className="absolute top-1 right-1 bg-pink-600 text-white rounded-full p-0.5 shadow-sm">
+                                    <Check className="w-2.5 h-2.5" />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {IMAGE_STYLE_PRESETS.map((preset) => (
-                          <button
-                            key={preset.id}
-                            type="button"
-                            onClick={() => {
-                              const eaTitle = analysisResult?.eaName || "Forex EA Trading Bot";
-                              setCustomImagePrompt(`A premium commercial presentation visual for '${eaTitle}', ${preset.promptSuffix}`);
+                    ) : (
+                      /* Custom AI Generator */
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[11px] text-slate-500 leading-relaxed">
+                          สั่งสร้างภาพเฉพาะตัวด้วย <strong>Google Gemini Imagen 3</strong> หรือ <strong>Free AI Generator (Flux)</strong>:
+                        </p>
+
+                        <div className="flex flex-col gap-1 mt-0.5">
+                          <label className="text-[10px] font-bold text-slate-500">
+                            โมเดล AI ที่ใช้เจนภาพ (AI Model)
+                          </label>
+                          <select
+                            value={leonardoModel}
+                            onChange={(e) => {
+                              setLeonardoModel(e.target.value);
+                              localStorage.setItem("leonardo_model", e.target.value);
                             }}
-                            className="text-[10px] font-semibold text-slate-700 bg-white hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 border border-slate-200 rounded-lg p-1.5 text-left transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
                           >
-                            <span>{preset.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                            <option value="gemini-imagen">✨ Google Gemini Imagen 3 (ใช้คีย์ Gemini ด้านบน - แนะนำ)</option>
+                            <option value="free-pollinations">✨ Free AI Generator (ฟรี ไม่ต้องใช้คีย์)</option>
+                            <option value="6bef9f1b-71cb-40e7-96a2-21e14026187e">Leonardo Phoenix (ลายเส้นคมชัด สะกดคำแม่น)</option>
+                            <option value="5c232a9e-9040-4777-9f40-7e15c54047f0">Leonardo Vision XL (ภาพถ่ายเสมือนจริง 3D / Realistic)</option>
+                            <option value="e1a32a61-3813-4907-94d8-7e39f37c4d37">Leonardo Diffusion XL (ภาพวาด งานอาร์ต แฟนตาซี)</option>
+                            <option value="a72dfd34-4a4a-4ab7-b8f4-6338fb50cf00">AlbedoBase XL (3D Render, เวกเตอร์, อนิเมะ)</option>
+                            <option value="1e60fcdb-a3a6-4bc0-b78d-177303d09a54">Stable Diffusion XL 1.0 (สแตนดาร์ด SDXL)</option>
+                            <option value="custom">Custom Model ID (ระบุรหัสด้วยตนเอง)</option>
+                          </select>
+                        </div>
 
-                    <div className="flex flex-col gap-1 mt-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-500">Prompt เจนภาพโฆษณา</label>
+                        {leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && (
+                          <div className="flex flex-col gap-1 mt-1 border border-pink-100 p-2.5 rounded-lg bg-pink-50/30">
+                            <label className="text-[10px] font-bold text-pink-700 flex items-center gap-1">
+                              <Key className="w-3 h-3 text-pink-500" /> คีย์ API ของ Leonardo.ai
+                            </label>
+                            <input
+                              type="password"
+                              value={leonardoPassword}
+                              onChange={(e) => {
+                                setLeonardoPassword(e.target.value);
+                                localStorage.setItem("leonardo_password", e.target.value);
+                              }}
+                              placeholder="วาง API Key (รูปแบบ UUID เช่น 9f677511-xxxx-...)"
+                              className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-mono"
+                            />
+                            {leonardoPassword.trim().includes("@") && (
+                              <span className="text-[10px] text-pink-600 font-semibold block mt-1 leading-normal">
+                                ⚠️ ตรวจพบอีเมล: การใช้ API จะไม่รองรับ Gmail/รหัสผ่านเข้าสู่ระบบโดยตรง โปรดใช้ Leonardo API Key ในรูปแบบรหัส UUID (36 ตัวอักษร)
+                              </span>
+                            )}
+                            <span className="text-[9px] text-slate-500 mt-1 block">
+                              💡 สมัครและรับคีย์ฟรีที่ <a href="https://app.leonardo.ai/" target="_blank" rel="noreferrer" className="underline font-semibold text-pink-600 hover:text-pink-700">app.leonardo.ai</a> เมนู API Access
+                            </span>
+                          </div>
+                        )}
+
+                        {leonardoModel === "custom" && (
+                          <div className="flex flex-col gap-1 mt-1">
+                            <label className="text-[10px] font-bold text-slate-500">
+                              รหัสโมเดลแบบกำหนดเอง (Custom Model ID)
+                            </label>
+                            <input
+                              type="text"
+                              value={customModelId}
+                              onChange={(e) => {
+                                setCustomModelId(e.target.value);
+                                localStorage.setItem("leonardo_custom_model_id", e.target.value);
+                              }}
+                              placeholder="ระบุรหัสโมเดล เช่น b2449217-..."
+                              className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-mono"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex flex-col gap-1 mt-1">
+                          <label className="text-[10px] font-bold text-slate-500">
+                            ขนาดภาพ / สัดส่วน (Dimensions)
+                          </label>
+                          <select
+                            value={leonardoDimension}
+                            onChange={(e) => {
+                              setLeonardoDimension(e.target.value);
+                              localStorage.setItem("leonardo_dimension", e.target.value);
+                            }}
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                          >
+                            <option value="1024x1024">1:1 Square (1024x1024) - แนะนำที่สุด</option>
+                            <option value="1024x576">16:9 Wide (1024x576) - เหมาะสำหรับแบนเนอร์กว้าง</option>
+                            <option value="1024x768">4:3 Standard (1024x768) - มิติคลาสสิก</option>
+                            <option value="768x1024">3:4 Portrait (768x1024) - สัดส่วนแนวตั้ง</option>
+                            <option value="512x512">1:1 Small (512x512) - เจนเนอเรตเร็ว/ใช้เครดิตน้อย</option>
+                          </select>
+                        </div>
+
+                        {/* Style presets selector */}
+                        <div className="flex flex-col gap-1.5 mt-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
+                              <Wand2 className="w-3 h-3 text-pink-500" /> เลือกสไตล์ภาพกราฟิก EA
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (analysisResult?.imagePrompt) {
+                                  setCustomImagePrompt(analysisResult.imagePrompt);
+                                } else if (analysisResult?.eaName) {
+                                  setCustomImagePrompt(`3D futuristic high-tech presentation graphic for '${analysisResult.eaName}' MT5 Forex Expert Advisor, glowing green and gold candlestick charts, multi-currency holographic matrix, octane render, 8k resolution, cinematic lighting, masterpiece`);
+                                }
+                              }}
+                              className="text-[9px] text-pink-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <Sparkles className="w-2.5 h-2.5" /> ค่าเริ่มต้น AI
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            {IMAGE_STYLE_PRESETS.map((preset) => (
+                              <button
+                                key={preset.id}
+                                type="button"
+                                onClick={() => {
+                                  const eaTitle = analysisResult?.eaName || "Forex EA Trading Bot";
+                                  setCustomImagePrompt(`A premium commercial presentation visual for '${eaTitle}', ${preset.promptSuffix}`);
+                                }}
+                                className="text-[10px] font-semibold text-slate-700 bg-white hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 border border-slate-200 rounded-lg p-1.5 text-left transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+                              >
+                                <span>{preset.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1 mt-1">
+                          <div className="flex items-center justify-between">
+                            <label className="text-[10px] font-bold text-slate-500">Prompt เจนภาพโฆษณา</label>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cur = customImagePrompt || analysisResult?.imagePrompt || "";
+                                if (!cur.includes("candlestick") && !cur.includes("forex")) {
+                                  setCustomImagePrompt(`${cur}, glowing financial candlestick charts, high-tech fintech trading visual, 3D octane render, 8k resolution, photorealistic cinematic lighting`);
+                                }
+                              }}
+                              className="text-[9px] text-indigo-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                            >
+                              <Sparkles className="w-2.5 h-2.5" /> บูสต์ความคมชัด 8K
+                            </button>
+                          </div>
+                          <textarea
+                            value={customImagePrompt}
+                            onChange={(e) => setCustomImagePrompt(e.target.value)}
+                            placeholder="ระบุพรอมต์ภาษาอังกฤษเพื่อเจนภาพ..."
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 min-h-[70px] focus:ring-1 focus:ring-pink-500 focus:outline-none placeholder-slate-400 font-medium"
+                          />
+                        </div>
+
                         <button
-                          type="button"
-                          onClick={() => {
-                            const cur = customImagePrompt || analysisResult?.imagePrompt || "";
-                            if (!cur.includes("candlestick") && !cur.includes("forex")) {
-                              setCustomImagePrompt(`${cur}, glowing financial candlestick charts, high-tech fintech trading visual, 3D octane render, 8k resolution, photorealistic cinematic lighting`);
-                            }
-                          }}
-                          className="text-[9px] text-indigo-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                          onClick={handleGenerateLeonardoImage}
+                          disabled={isGeneratingImage || (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && !leonardoPassword.trim())}
+                          className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed"
                         >
-                          <Sparkles className="w-2.5 h-2.5" /> บูสต์ความคมชัด 8K
+                          {isGeneratingImage ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-[10px]">กำลังประมวลผล...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>สร้างภาพ AI ทันที ✨</span>
+                            </>
+                          )}
                         </button>
                       </div>
-                      <textarea
-                        value={customImagePrompt}
-                        onChange={(e) => setCustomImagePrompt(e.target.value)}
-                        placeholder="ระบุพรอมต์ภาษาอังกฤษเพื่อเจนภาพ..."
-                        className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 min-h-[70px] focus:ring-1 focus:ring-pink-500 focus:outline-none placeholder-slate-400 font-medium"
-                      />
-                    </div>
+                    )}
                   </div>
 
                   <div className="mt-2 flex flex-col gap-2">
@@ -2091,35 +2233,20 @@ Return ONLY valid JSON matching this schema:
                           >
                             เปิดภาพเต็ม <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                          <button
-                            type="button"
-                            onClick={handleGenerateLeonardoImage}
-                            disabled={isGeneratingImage}
-                            className="text-emerald-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
-                          >
-                            <Dices className="w-3 h-3" /> สุ่มรูปใหม่ (Reroll)
-                          </button>
+                          {imageWorkshopTab === "ai" && (
+                            <button
+                              type="button"
+                              onClick={handleGenerateLeonardoImage}
+                              disabled={isGeneratingImage}
+                              className="text-emerald-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+                            >
+                              <Dices className="w-3 h-3" /> สุ่มรูปใหม่ (Reroll)
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
 
-                    <button
-                      onClick={handleGenerateLeonardoImage}
-                      disabled={isGeneratingImage || (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && !leonardoPassword.trim())}
-                      className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed"
-                    >
-                      {isGeneratingImage ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span className="text-[10px]">กำลังประมวลผล...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          <span>สร้างภาพ AI ทันที ✨</span>
-                        </>
-                      )}
-                    </button>
                     {leonardoStatus && (
                       <p className="text-[10px] text-pink-600 font-semibold text-center animate-pulse">{leonardoStatus}</p>
                     )}
