@@ -300,17 +300,68 @@ Return your response strictly as a JSON object matching the requested schema. En
   }
 });
 
-// Proxy route to initiate image generation on Leonardo.ai or Free Pollinations.ai
+// Proxy route to initiate image generation on Free Flux/Pollinations, Gemini Imagen, or Leonardo.ai
 app.post("/api/leonardo/generate", async (req, res) => {
   try {
-    const { prompt, width, height, modelId, clientApiKey } = req.body;
+    const { prompt, width, height, modelId, clientApiKey, geminiApiKey } = req.body;
 
-    // Check if user selected the free generator or does not have a key
-    if (modelId === "free-pollinations" || !clientApiKey) {
-      const finalWidth = width || 1024;
-      const finalHeight = height || 1024;
+    const finalWidth = width || 1024;
+    const finalHeight = height || 1024;
+    const safePrompt = prompt || "A sleek futuristic EA Trading Bot presentation card, financial neon candlesticks, 3d render, hyperrealistic";
+
+    // 1. Check if user selected the Gemini Imagen model
+    if (modelId === "gemini-imagen") {
+      const activeGeminiKey = (geminiApiKey && typeof geminiApiKey === "string" && geminiApiKey.trim())
+        ? geminiApiKey.trim()
+        : process.env.GEMINI_API_KEY;
+
+      if (!activeGeminiKey) {
+        return res.status(400).json({ 
+          error: "ยังไม่ได้ระบุ Gemini API Key สำหรับสร้างภาพ กรุณาระบุในช่องด้านบน หรือเลือก '✨ Free AI Generator'" 
+        });
+      }
+
+      try {
+        const ai = new GoogleGenAI({ apiKey: activeGeminiKey });
+        const imgResponse = await ai.models.generateContent({
+          model: "gemini-3.1-flash-image",
+          contents: {
+            parts: [{ text: safePrompt }]
+          },
+          config: {
+            imageConfig: {
+              aspectRatio: "1:1"
+            }
+          }
+        });
+
+        let foundImageUrl = "";
+        const parts = imgResponse.candidates?.[0]?.content?.parts || [];
+        for (const part of parts) {
+          if (part.inlineData && part.inlineData.data) {
+            foundImageUrl = `data:image/png;base64,${part.inlineData.data}`;
+            break;
+          }
+        }
+
+        if (foundImageUrl) {
+          const genId = `gemini-img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+          imageCache.set(genId, foundImageUrl);
+          return res.json({
+            sdGenerationJob: {
+              generationId: genId
+            }
+          });
+        }
+      } catch (geminiImgErr: any) {
+        console.warn("Gemini Image generation failed, falling back to Free generator:", geminiImgErr?.message || geminiImgErr);
+      }
+    }
+
+    // 2. Check if user selected the free generator or does not have Leonardo key
+    if (modelId === "free-pollinations" || modelId === "gemini-imagen" || !clientApiKey || clientApiKey === "free") {
       const randomSeed = Math.floor(Math.random() * 1000000);
-      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt || "A sleek futuristic trading card")}?width=${finalWidth}&height=${finalHeight}&nologo=true&enhance=true&seed=${randomSeed}`;
+      const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${finalWidth}&height=${finalHeight}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
       
       const generationId = `free-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       imageCache.set(generationId, imageUrl);
@@ -334,10 +385,10 @@ app.post("/api/leonardo/generate", async (req, res) => {
     }
 
     const payload = {
-      prompt: prompt || "A sleek futuristic trading card",
-      width: width || 1024,
-      height: height || 768,
-      modelId: modelId || "b2449217-0e93-4096-bba0-49aef32fc5b5", // Default to Phoenix/Leonardo Vision XL
+      prompt: safePrompt,
+      width: finalWidth,
+      height: finalHeight,
+      modelId: modelId || "b2449217-0e93-4096-bba0-49aef32fc5b5",
       num_images: 1,
     };
 
@@ -369,8 +420,8 @@ app.post("/api/leonardo/generate", async (req, res) => {
     const data = await apiRes.json();
     res.json(data);
   } catch (error: any) {
-    console.error("Leonardo generation initiation failed:", error);
-    res.status(500).json({ error: error.message || "Leonardo generation initiation failed" });
+    console.error("Image generation initiation failed:", error);
+    res.status(500).json({ error: error.message || "Image generation initiation failed" });
   }
 });
 

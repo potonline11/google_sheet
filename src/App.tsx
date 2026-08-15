@@ -65,10 +65,7 @@ const parseApiResponse = async (response: Response) => {
     if (data && (data.error || data.message)) {
       throw new Error(data.error || data.message);
     }
-    if (text.includes("A server error") || text.includes("Server Error") || response.status === 500) {
-      throw new Error("เกิดข้อผิดพลาดที่เซิร์ฟเวอร์ (500 Server Error) กรุณาตรวจสอบว่าได้ตั้งค่า GEMINI_API_KEY ใน Environment Variables บน Vercel แล้วหรือยัง");
-    }
-    throw new Error(`เซิร์ฟเวอร์ตอบกลับข้อผิดพลาด (${response.status}): ${text.slice(0, 150)}`);
+    throw new Error(`เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์ (${response.status}): ${text.slice(0, 200) || "ไม่สามารถตอบรับคำขอได้"}`);
   }
 
   if (!data) {
@@ -777,40 +774,72 @@ Return ONLY valid JSON matching this schema:
     }
   };
 
-  // 1. Generate Image on Leonardo.ai or Free Generator using server proxy
+  // 1. Generate Image on Leonardo.ai, Gemini Imagen, or Free Generator using server proxy + client fallback
   const handleGenerateLeonardoImage = async () => {
     if (!analysisResult) return;
     setIsGeneratingImage(true);
-    setLeonardoStatus(leonardoModel === "free-pollinations" ? "กำลังสั่งสร้างรูปภาพด้วย Free AI Generator..." : "กำลังเชื่อมต่อและส่งข้อมูลสเปคภาพ...");
+    setLeonardoStatus(
+      leonardoModel === "gemini-imagen" 
+        ? "กำลังสั่งสร้างรูปภาพด้วย Gemini Image Model..." 
+        : leonardoModel === "free-pollinations" 
+          ? "กำลังสั่งสร้างรูปภาพด้วย Free AI Generator..." 
+          : "กำลังเชื่อมต่อและส่งข้อมูลสเปคภาพ..."
+    );
     setErrorMessage(null);
+
+    const [widthStr, heightStr] = leonardoDimension.split("x");
+    const widthNum = parseInt(widthStr, 10) || 1024;
+    const heightNum = parseInt(heightStr, 10) || 1024;
+    const finalModelId = leonardoModel === "custom" ? customModelId.trim() : leonardoModel;
+    const safePrompt = customImagePrompt || analysisResult.imagePrompt || "A sleek futuristic EA Trading Bot presentation card, financial neon candlesticks, 3d render, hyperrealistic";
 
     try {
       const sanitizedKey = (leonardoPassword || "").trim();
-      if (leonardoModel !== "free-pollinations" && sanitizedKey.includes("@")) {
+      if (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && sanitizedKey.includes("@")) {
         throw new Error("ตรวจพบรูปแบบอีเมลในช่อง API Key: ระบบไม่รองรับการเข้าสู่ระบบ Leonardo.ai ด้วย Gmail หรือรหัสผ่านโดยตรงผ่าน API กรุณาป้อนคีย์ API Key (รหัส UUID 36 หลัก) จากแผงควบคุม Leonardo.ai");
       }
 
-      const [widthStr, heightStr] = leonardoDimension.split("x");
-      const widthNum = parseInt(widthStr, 10) || 1024;
-      const heightNum = parseInt(heightStr, 10) || 1024;
-      const finalModelId = leonardoModel === "custom" ? customModelId.trim() : leonardoModel;
+      // 1. Try server-side proxy
+      let generationId = "";
+      try {
+        const response = await fetch("/api/leonardo/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: safePrompt,
+            clientApiKey: (leonardoModel === "free-pollinations" || leonardoModel === "gemini-imagen") ? "free" : leonardoPassword,
+            geminiApiKey: geminiApiKey.trim() || undefined,
+            width: widthNum,
+            height: heightNum,
+            modelId: finalModelId || undefined
+          })
+        });
 
-      const response = await fetch("/api/leonardo/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: customImagePrompt || analysisResult.imagePrompt,
-          clientApiKey: leonardoModel === "free-pollinations" ? "free" : leonardoPassword,
-          width: widthNum,
-          height: heightNum,
-          modelId: finalModelId || undefined
-        })
-      });
+        const initData = await parseApiResponse(response);
+        generationId = initData.sdGenerationJob?.generationId;
+      } catch (serverGenErr: any) {
+        console.warn("Server generation initiation error:", serverGenErr);
+        // Fallback: If free generation fails on server, directly construct client URL
+        if (leonardoModel === "free-pollinations" || !leonardoPassword.trim()) {
+          const randomSeed = Math.floor(Math.random() * 1000000);
+          const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+          setGeneratedImageUrl(directUrl);
+          setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
+          setIsGeneratingImage(false);
+          return;
+        } else {
+          throw serverGenErr;
+        }
+      }
 
-      const initData = await parseApiResponse(response);
-      const generationId = initData.sdGenerationJob?.generationId;
       if (!generationId) {
-        throw new Error("ระบบตอบกลับสำเร็จแต่ไม่พบ Generation ID คาดว่าโควตาคีย์ของคุณหมด หรือคีย์ไม่ถูกต้อง");
+        // Fallback directly
+        const randomSeed = Math.floor(Math.random() * 1000000);
+        const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+        setGeneratedImageUrl(directUrl);
+        setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
+        setIsGeneratingImage(false);
+        return;
       }
 
       setLeonardoStatus("กำลังสร้างสรรค์ภาพด้วย AI (อาจใช้เวลาประมาณ 10-15 วินาที)...");
@@ -874,9 +903,12 @@ Return ONLY valid JSON matching this schema:
 
     } catch (err: any) {
       console.error("Leonardo error:", err);
-      setErrorMessage(err.message || "เกิดปัญหาระหว่างขอใช้บริการ Leonardo.ai");
+      // If error occurs, fallback to direct Pollinations image so user is never blocked
+      const randomSeed = Math.floor(Math.random() * 1000000);
+      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(safePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&enhance=true&seed=${randomSeed}&model=flux`;
+      setGeneratedImageUrl(fallbackUrl);
+      setLeonardoStatus("สร้างภาพสำเร็จด้วยระบบสำรอง!");
       setIsGeneratingImage(false);
-      setLeonardoStatus("");
     }
   };
 
@@ -1855,7 +1887,8 @@ Return ONLY valid JSON matching this schema:
                         }}
                         className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
                       >
-                        <option value="free-pollinations">✨ Free AI Generator (ไม่ต้องใช้คีย์ API Key - แนะนำ)</option>
+                        <option value="free-pollinations">✨ Free AI Generator (ฟรี ไม่ต้องใช้คีย์ - แนะนำที่สุด)</option>
+                        <option value="gemini-imagen">✨ Google Gemini Imagen 3 (ใช้คีย์ Gemini ด้านบน)</option>
                         <option value="6bef9f1b-71cb-40e7-96a2-21e14026187e">Leonardo Phoenix (ลายเส้นคมชัด สะกดคำแม่น)</option>
                         <option value="5c232a9e-9040-4777-9f40-7e15c54047f0">Leonardo Vision XL (ภาพถ่ายเสมือนจริง 3D / Realistic)</option>
                         <option value="e1a32a61-3813-4907-94d8-7e39f37c4d37">Leonardo Diffusion XL (ภาพวาด งานอาร์ต แฟนตาซี)</option>
@@ -1865,7 +1898,7 @@ Return ONLY valid JSON matching this schema:
                       </select>
                     </div>
 
-                    {leonardoModel !== "free-pollinations" && (
+                    {leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && (
                       <div className="flex flex-col gap-1 mt-1 border border-pink-100 p-2.5 rounded-lg bg-pink-50/30">
                         <label className="text-[10px] font-bold text-pink-700 flex items-center gap-1">
                           <Key className="w-3 h-3 text-pink-500" /> คีย์ API ของ Leonardo.ai
@@ -1962,7 +1995,7 @@ Return ONLY valid JSON matching this schema:
 
                     <button
                       onClick={handleGenerateLeonardoImage}
-                      disabled={isGeneratingImage || (leonardoModel !== "free-pollinations" && !leonardoPassword.trim())}
+                      disabled={isGeneratingImage || (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && !leonardoPassword.trim())}
                       className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed"
                     >
                       {isGeneratingImage ? (
