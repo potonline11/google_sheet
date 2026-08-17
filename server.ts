@@ -132,14 +132,14 @@ Given the following raw text, EA trading strategy description, MQL code, or feat
    - Do NOT include <html>, <head>, or <body> tags. Just raw styled Tailwind elements.
    - Ensure all images/icons are clean and from Lucide/Heroicons if any, or simple CSS circles/shapes.
    - The HTML code should be robust, professional, and readable.
-5. Create a highly descriptive, cinematic English image generation prompt tailored for Leonardo.ai or Flux to generate a stunning, commercial-grade marketing visual representing this EA.
-   - CRITICAL QUALITY CONTROL: The visual must represent high-end fintech, algorithmic trading, or forex automation. It should feature concrete visual elements such as:
-     * A high-tech 3D holographic trading terminal with vibrant glowing green and gold candlestick charts, multiple currency pair displays (EURUSD, GBPUSD, XAUUSD).
-     * An ultra-sleek metallic AI cybernetic trading bot analyzing neon financial market trends in a futuristic trading control room.
-     * A magnificent glowing golden Wall Street bull surrounded by dynamic laser candlestick graphs and matrix data streams.
-     * An ultra-luxury multi-screen trading command center with real-time MT5 algorithmic trade graphs.
-   - STRICT NEGATIVE CONSTRAINTS: DO NOT generate abstract blurry pedestals, circular table disks, empty plates, non-descript blue circles, toys, or candies. Even if the EA name is whimsical, interpret it as a cutting-edge futuristic financial technology brand.
-   - STYLE BOOSTER KEYWORDS: 3D octane digital render, volumetric cinematic lighting, photorealistic 8k resolution, dark titanium and midnight blue background with emerald green and gold glowing accents, high contrast, commercial advertising masterpiece.
+5. Create a highly descriptive English image generation prompt to generate a stunning, commercial-grade marketing infographic poster that explicitly represents this EA and features its name at the top.
+   - CRITICAL REQUIREMENT (EA TITLE & THEME MATCHING):
+     * The prompt MUST explicitly instruct the AI image generator to put the EA name in bold, glowing, futuristic 3D typography or illuminated neon header banner at the VERY TOP of the image (e.g., 'At the very top, large glowing neon 3D header text displaying "[EXACT_EA_NAME]"').
+     * The theme and visual metaphor of the prompt MUST MATCH the EA's name and strategy (for example: if the EA is 'VR Lollipop Trend', include neon lollipop hologram accents alongside candlestick charts; if 'Gold Dragon', include an illuminated golden dragon aura alongside MT5 charts; if 'Cyber Scalper', include high-speed neon cybernetic data streams).
+     * Combine the unique theme with high-tech trading elements: multi-screen glowing candlestick charts (EURUSD, GBPUSD, XAUUSD), profit trendline curves, algorithmic indicators, and a high-tech trading console.
+   - QUALITY & LIGHTING:
+     * Bright, ultra-clear cinematic neon studio lighting, glowing cyan, pink, and gold holographic charts, sharp details, 8k resolution, commercial presentation poster masterpiece.
+   - STRICT NEGATIVE CONSTRAINTS: DO NOT generate dark moody rooms, scary cyborg portraits, single humanoid portraits without charts, empty tables, or blurry graphics. Ensure the text banner at the top is clearly specified.
 
 CRITICAL DESIGN REQUIREMENT FOR HTML / TEXT FIELDS:
 - DO NOT use any HTML character entities or encodings like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;' inside the Thai text fields or HTML wrappers.
@@ -307,13 +307,111 @@ Return your response strictly as a JSON object matching the requested schema. En
 // Proxy route to initiate image generation on Free Flux/Pollinations, Gemini Imagen, or Leonardo.ai
 app.post("/api/leonardo/generate", async (req, res) => {
   try {
-    const { prompt, width, height, modelId, clientApiKey, geminiApiKey } = req.body;
+    const { prompt, width, height, modelId, clientApiKey, geminiApiKey, openaiApiKey } = req.body;
 
     const finalWidth = width || 1024;
     const finalHeight = height || 1024;
-    const safePrompt = prompt || "A sleek futuristic EA Trading Bot presentation card, financial neon candlesticks, 3d render, hyperrealistic";
+    const rawPrompt = prompt || "A commercial presentation graphic for Forex Expert Advisor, glowing candlestick charts, 8k";
+    // Enhance prompt to ensure ultra-bright commercial studio lighting, clear candlestick charts, and zero dark sci-fi portraits
+    let safePrompt = rawPrompt;
+    if (!safePrompt.toLowerCase().includes("studio lighting") && !safePrompt.toLowerCase().includes("commercial")) {
+      safePrompt = `${rawPrompt}, professional commercial fintech infographic poster, bright clean studio backdrop, ultra-detailed MetaTrader 5 candlestick charts, vibrant green bullish indicators, 8k resolution, crisp clean presentation`;
+    }
 
-    // 1. Check if user selected the Gemini Imagen model
+    // 1. OpenAI DALL-E 3 Generator (Commercial Graphic & High Precision Typography)
+    if (modelId === "dall-e-3" || modelId === "openai-dalle3" || (clientApiKey && typeof clientApiKey === "string" && clientApiKey.trim().startsWith("sk-"))) {
+      let activeOpenAIKey = (openaiApiKey || clientApiKey || process.env.OPENAI_API_KEY || "").trim();
+      activeOpenAIKey = activeOpenAIKey.replace(/[\s\r\n\t]/g, "").replace(/["']/g, "").trim();
+
+      if (!activeOpenAIKey) {
+        return res.status(400).json({
+          error: "กรุณาระบุ OpenAI API Key (ขึ้นต้นด้วย 'sk-...') ในช่องกรอก หรือตั้งค่า OPENAI_API_KEY"
+        });
+      }
+
+      // Determine appropriate size for DALL-E 3
+      let dalleSize: "1024x1024" | "1024x1792" | "1792x1024" = "1024x1024";
+      if (finalWidth > finalHeight) {
+        dalleSize = "1792x1024";
+      } else if (finalHeight > finalWidth) {
+        dalleSize = "1024x1792";
+      }
+
+      let openAiImgUrl = "";
+
+      try {
+        // Try DALL-E 3 first
+        const openAiRes = await fetch("https://api.openai.com/v1/images/generations", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${activeOpenAIKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "dall-e-3",
+            prompt: safePrompt,
+            n: 1,
+            size: dalleSize
+          })
+        });
+
+        if (openAiRes.ok) {
+          const openAiData: any = await openAiRes.json();
+          openAiImgUrl = openAiData.data?.[0]?.url || "";
+        } else {
+          const errJson: any = await openAiRes.json().catch(() => ({}));
+          console.warn("DALL-E 3 request error, attempting DALL-E 2 / Ultra engine fallback:", errJson);
+          
+          // Try DALL-E 2 fallback if DALL-E 3 model is not enabled for this project key
+          try {
+            const dalle2Res = await fetch("https://api.openai.com/v1/images/generations", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${activeOpenAIKey}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                model: "dall-e-2",
+                prompt: safePrompt.slice(0, 950),
+                n: 1,
+                size: "1024x1024"
+              })
+            });
+
+            if (dalle2Res.ok) {
+              const d2Data: any = await dalle2Res.json();
+              openAiImgUrl = d2Data.data?.[0]?.url || "";
+            }
+          } catch (d2Err) {
+            console.warn("DALL-E 2 fallback error:", d2Err);
+          }
+        }
+      } catch (openAiErr: any) {
+        console.warn("OpenAI API fetch error:", openAiErr);
+      }
+
+      // If OpenAI succeeded
+      if (openAiImgUrl) {
+        const genId = `openai-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        imageCache.set(genId, openAiImgUrl);
+        return res.json({
+          sdGenerationJob: {
+            generationId: genId
+          },
+          imageUrl: openAiImgUrl,
+          status: "COMPLETE"
+        });
+      }
+
+      // If OpenAI failed, return specific OpenAI error to user so they know what happened with their key
+      if (!openAiImgUrl) {
+        return res.status(400).json({
+          error: "ไม่สามารถสร้างภาพด้วย OpenAI DALL-E 3 ได้ (ตรวจสอบสิทธิ์ API Key, การเติมเครดิตใน platform.openai.com/billing หรือเปลี่ยนไปใช้ 'Google Gemini Imagen 3' หรือ 'Free AI Generator' แทนได้ทันที)"
+        });
+      }
+    }
+
+    // 2. Check if user selected the Gemini Imagen model
     if (modelId === "gemini-imagen") {
       const activeGeminiKey = (geminiApiKey && typeof geminiApiKey === "string" && geminiApiKey.trim())
         ? geminiApiKey.trim()
@@ -325,54 +423,76 @@ app.post("/api/leonardo/generate", async (req, res) => {
         });
       }
 
-      const geminiImageModels = ["gemini-3.1-flash-image", "gemini-3.1-flash-lite-image"];
       let foundImageUrl = "";
 
-      for (const imgModel of geminiImageModels) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: activeGeminiKey });
-          const imgResponse = await ai.models.generateContent({
-            model: imgModel,
-            contents: {
-              parts: [{ text: safePrompt }]
-            },
-            config: {
-              imageConfig: {
-                aspectRatio: "1:1"
-              }
-            }
-          });
+      // Try Imagen 3 first (Best Quality image generation model from Google)
+      try {
+        const ai = new GoogleGenAI({ apiKey: activeGeminiKey });
+        const imgResponse = await ai.models.generateImages({
+          model: "imagen-3.0-generate-002",
+          prompt: safePrompt,
+          config: {
+            numberOfImages: 1,
+            outputMimeType: "image/jpeg",
+            aspectRatio: finalWidth > finalHeight ? "16:9" : finalHeight > finalWidth ? "9:16" : "1:1",
+          },
+        });
 
-          const parts = imgResponse.candidates?.[0]?.content?.parts || [];
-          for (const part of parts) {
-            if (part.inlineData && part.inlineData.data) {
-              foundImageUrl = `data:image/png;base64,${part.inlineData.data}`;
-              break;
-            }
-          }
+        const imageBytes = imgResponse.generatedImages?.[0]?.image?.imageBytes;
+        if (imageBytes) {
+          foundImageUrl = `data:image/jpeg;base64,${imageBytes}`;
+        }
+      } catch (imagenErr: any) {
+        console.warn("Imagen 3 generateImages failed, trying other models:", imagenErr?.message || imagenErr);
+      }
 
-          if (foundImageUrl) {
-            const genId = `gemini-img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
-            imageCache.set(genId, foundImageUrl);
-            return res.json({
-              sdGenerationJob: {
-                generationId: genId
+      // If Imagen 3 was not accessible, try multimodal image outputs
+      if (!foundImageUrl) {
+        const geminiImageModels = ["gemini-2.5-flash-image", "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image"];
+        for (const imgModel of geminiImageModels) {
+          try {
+            const ai = new GoogleGenAI({ apiKey: activeGeminiKey });
+            const imgResponse = await ai.models.generateContent({
+              model: imgModel,
+              contents: {
+                parts: [{ text: safePrompt }]
               }
             });
+
+            const parts = imgResponse.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+              if (part.inlineData && part.inlineData.data) {
+                foundImageUrl = `data:image/png;base64,${part.inlineData.data}`;
+                break;
+              }
+            }
+            if (foundImageUrl) break;
+          } catch (geminiImgErr: any) {
+            console.warn(`Gemini Image model ${imgModel} failed:`, geminiImgErr?.message || geminiImgErr);
           }
-        } catch (geminiImgErr: any) {
-          console.warn(`Gemini Image model ${imgModel} failed:`, geminiImgErr?.message || geminiImgErr);
         }
+      }
+
+      if (foundImageUrl) {
+        const genId = `gemini-img-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+        imageCache.set(genId, foundImageUrl);
+        return res.json({
+          sdGenerationJob: {
+            generationId: genId
+          },
+          imageUrl: foundImageUrl,
+          status: "COMPLETE"
+        });
       }
     }
 
-    // 2. Free generator with clean, concrete forex/fintech photographic prompts
+    // 3. Free generator with ultra-clean studio lighting (Pure Financial Trading Tech / MT5 Posters)
     if (modelId === "free-pollinations" || modelId === "gemini-imagen" || !clientApiKey || clientApiKey === "free") {
       const randomSeed = Math.floor(Math.random() * 1000000);
       
-      // Clean up prompt to guarantee high quality concrete subject (avoid abstract table slabs)
-      const cleanSubject = "photograph of a high-tech financial trading workstation with glowing neon green forex candlestick charts, MT5 automated trading bots, holographic currency exchange indicators, dark futuristic trading room";
-      const enrichedPrompt = `${cleanSubject}, ${safePrompt}, professional 8k resolution, volumetric cinematic lighting, octane render`;
+      // High-impact commercial MT5 workstation & financial charts prompt (Pure fintech infographic, no humans/anime)
+      const cleanSubject = "commercial presentation infographic poster for MetaTrader 5 Expert Advisor, featuring bright multi-monitor workstation with crisp glowing green and gold EUR/USD candlestick charts, algorithmic trading indicators, profit telemetry, modern clean studio backdrop, 8k resolution, photorealistic masterpiece";
+      const enrichedPrompt = `${safePrompt}, ${cleanSubject}`;
         
       const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(enrichedPrompt)}?width=${finalWidth}&height=${finalHeight}&nologo=true&seed=${randomSeed}&model=flux`;
       
@@ -382,14 +502,16 @@ app.post("/api/leonardo/generate", async (req, res) => {
       return res.json({
         sdGenerationJob: {
           generationId: generationId
-        }
+        },
+        imageUrl: imageUrl,
+        status: "COMPLETE"
       });
     }
 
     let activeApiKey = clientApiKey || process.env.LEONARDO_API_KEY;
 
     if (!activeApiKey) {
-      return res.status(400).json({ error: "Missing Leonardo.ai API Key. Please select 'Free AI Generator' or configure LEONARDO_API_KEY on the server." });
+      return res.status(400).json({ error: "ไม่พบคีย์ Leonardo.ai API Key กรุณาระบุคีย์ในช่อง หรือเลือก 'Free AI Generator' เพื่อสร้างภาพฟรี" });
     }
 
     if (typeof activeApiKey === "string") {
@@ -397,12 +519,20 @@ app.post("/api/leonardo/generate", async (req, res) => {
       activeApiKey = activeApiKey.replace(/[\s\r\n\t]/g, "").replace(/["']/g, "").trim();
     }
 
-    const payload = {
+    // Full Leonardo API configuration matching Leonardo.ai Web UI quality (Alchemy, Dynamic preset, high contrast)
+    const isPhoenix = (modelId === "6bef9f1b-71cb-40e7-96a2-21e14026187e");
+    
+    const payload: any = {
       prompt: safePrompt,
       width: finalWidth,
       height: finalHeight,
-      modelId: modelId || "b2449217-0e93-4096-bba0-49aef32fc5b5",
+      modelId: modelId || "6bef9f1b-71cb-40e7-96a2-21e14026187e",
       num_images: 1,
+      alchemy: true,
+      presetStyle: isPhoenix ? "DYNAMIC" : "CINEMATIC",
+      contrastRatio: 0.8,
+      guidance_scale: 7,
+      public: false,
     };
 
     const apiRes = await fetch("https://api.leonardo.ai/api/rest/v1/generations", {
@@ -419,13 +549,11 @@ app.post("/api/leonardo/generate", async (req, res) => {
       const errText = await apiRes.text();
       let customError = `Leonardo API Error (Status ${apiRes.status}): ${errText}`;
       if (apiRes.status === 401) {
-        customError = "คีย์ API Key ของ Leonardo ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าใช้งาน กรุณาตรวจสอบว่าคีย์สะกดถูกต้องและไม่มีช่องว่างส่วนเกิน";
+        customError = "คีย์ Leonardo API ไม่ถูกต้อง หรือถูกระงับ (กรุณาตรวจสอบว่านำคีย์มาจาก app.leonardo.ai/api-access/api-keys)";
+      } else if (apiRes.status === 402 || errText.includes("tokens") || errText.includes("credits") || errText.includes("insufficient")) {
+        customError = "เครดิตในบัญชี Leonardo API หมด (เหรียญบนเว็บ Leonardo หน้า UI คนละส่วนกับเครดิต API): กรุณาตรวจสอบแพ็กเกจ API ที่ app.leonardo.ai/api-access หรือเลือกใช้โมเดล 'Free AI Generator' แทน";
       } else if (errText.includes("Could not verify JWT") || errText.includes("invalid-jwt") || errText.includes("JWSError")) {
-        customError = "คีย์ API ของคุณถูกปฏิเสธโดย Leonardo.ai (ระบบแจ้งข้อผิดพลาด JWT/JWSError)\n\n" +
-                      "สาเหตุทั่วไป:\n" +
-                      "1. คีย์ที่วางไม่ตรงกับในระบบ หรือคัดลอกมาไม่สมบูรณ์ (คีย์ที่ถูกต้องปกติจะเป็นรหัส UUID เช่น '9f677511-78f1-401f-9dfe-bc7215d3d3d4')\n" +
-                      "2. บัญชีไม่มี API Credits ที่ใช้งานได้จริงในฝั่ง API (หากพึ่งเติมเงิน กรุณารอระบบอัปเดตสักครู่ หรือลองออกและสร้างคีย์ใหม่ในแผงควบคุม app.leonardo.ai/api-access/api-keys)\n" +
-                      "3. ตรวจสอบให้มั่นใจว่าได้ป้อนคีย์ลงในช่องและไม่มีช่องว่างแทรกอยู่";
+        customError = "คีย์ API ถูกปฏิเสธ (JWT Error): กรุณาสร้าง API Key ใหม่ในหน้า Leonardo.ai API Access";
       }
       return res.status(apiRes.status).json({ error: customError });
     }
@@ -443,8 +571,8 @@ app.get("/api/leonardo/status/:generationId", async (req, res) => {
   try {
     const { generationId } = req.params;
 
-    // Check if this is a free generation job
-    if (generationId && generationId.startsWith("free-")) {
+    // Check if this is a cached generation job (OpenAI DALL-E 3, Gemini, Free, etc.)
+    if (generationId && (imageCache.has(generationId) || generationId.startsWith("free-") || generationId.startsWith("openai-") || generationId.startsWith("gemini-"))) {
       const cachedUrl = imageCache.get(generationId);
       if (!cachedUrl) {
         return res.status(404).json({ error: "Image generation job not found or expired" });
@@ -564,39 +692,69 @@ app.post("/api/vercel/deploy", async (req, res) => {
 app.post("/api/vercel/blob/upload", async (req, res) => {
   try {
     const { imageUrl, customToken, fileName } = req.body;
-    const rawToken = customToken || process.env.BLOB_READ_WRITE_TOKEN;
-    const token = typeof rawToken === "string" ? rawToken.trim() : rawToken;
+    let rawToken = (customToken || process.env.BLOB_READ_WRITE_TOKEN || "").trim();
+    
+    // Sanitize token: remove 'BLOB_READ_WRITE_TOKEN=', quotes, spaces
+    rawToken = rawToken
+      .replace(/^BLOB_READ_WRITE_TOKEN\s*=\s*/i, "")
+      .replace(/["']/g, "")
+      .replace(/[\s\r\n\t]/g, "")
+      .trim();
 
-    if (!token) {
-      return res.status(400).json({ error: "Missing Vercel BLOB_READ_WRITE_TOKEN. Please provide it in the inputs or configure it as environment variable." });
+    if (!rawToken) {
+      return res.status(400).json({ 
+        error: "กรุณาระบุ Vercel BLOB_READ_WRITE_TOKEN (รูปแบบ 'vercel_blob_rw_...') ในช่องกรอก หรือเลือก 'ใช้ลิงก์ภาพโดยตรง' หากไม่ต้องการใช้งาน Vercel" 
+      });
     }
 
     if (!imageUrl) {
-      return res.status(400).json({ error: "No image URL provided to upload." });
+      return res.status(400).json({ error: "ไม่พบข้อมูลรูปภาพหรือ URL สำหรับอัปโหลด" });
     }
 
-    // Fetch the image from Leonardo S3 (often a presigned S3 url)
-    const imageRes = await fetch(imageUrl);
-    if (!imageRes.ok) {
-      throw new Error(`Failed to download Leonardo image: ${imageRes.statusText}`);
-    }
+    let buffer: Buffer;
+    let contentType = "image/jpeg";
 
-    const contentType = imageRes.headers.get("content-type") || "image/jpeg";
-    const arrayBuffer = await imageRes.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    if (imageUrl.startsWith("data:")) {
+      const matches = imageUrl.match(/^data:([^;]+);base64,(.+)$/);
+      if (matches) {
+        contentType = matches[1];
+        buffer = Buffer.from(matches[2], "base64");
+      } else {
+        const base64Data = imageUrl.split(",")[1] || "";
+        buffer = Buffer.from(base64Data, "base64");
+      }
+    } else {
+      // Fetch the image from external URL
+      const imageRes = await fetch(imageUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+        }
+      });
+      if (!imageRes.ok) {
+        throw new Error(`ไม่สามารถดาวน์โหลดภาพต้นทางได้ (Status ${imageRes.status}): ${imageRes.statusText}`);
+      }
+
+      contentType = imageRes.headers.get("content-type") || "image/jpeg";
+      const arrayBuffer = await imageRes.arrayBuffer();
+      buffer = Buffer.from(arrayBuffer);
+    }
 
     // Perform Vercel Blob Put operation
     const nameToUse = fileName || `ea_avatar_${Date.now()}.jpg`;
     const blobResult = await put(nameToUse, buffer, {
       access: "public",
-      token: token,
+      token: rawToken,
       contentType: contentType,
     });
 
     res.json({ url: blobResult.url });
   } catch (error: any) {
     console.error("Vercel Blob upload failed:", error);
-    res.status(500).json({ error: error.message || "Failed to upload image to Vercel Blob Storage." });
+    let msg = error.message || "Failed to upload image to Vercel Blob Storage.";
+    if (msg.includes("VercelBlobError") || msg.includes("Access denied") || msg.includes("token")) {
+      msg = "Vercel Blob Token ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง Storage กรุณาตรวจสอบว่าคีย์ขึ้นต้นด้วย 'vercel_blob_rw_' และสร้าง Storage ใน Vercel Dashboard แล้ว";
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -604,15 +762,23 @@ app.post("/api/vercel/blob/upload", async (req, res) => {
 app.post("/api/vercel/blob/upload-base64", async (req, res) => {
   try {
     const { base64Data, contentType, customToken, fileName } = req.body;
-    const rawToken = customToken || process.env.BLOB_READ_WRITE_TOKEN;
-    const token = typeof rawToken === "string" ? rawToken.trim() : rawToken;
+    let rawToken = (customToken || process.env.BLOB_READ_WRITE_TOKEN || "").trim();
 
-    if (!token) {
-      return res.status(400).json({ error: "Missing Vercel BLOB_READ_WRITE_TOKEN." });
+    // Sanitize token: remove 'BLOB_READ_WRITE_TOKEN=', quotes, spaces
+    rawToken = rawToken
+      .replace(/^BLOB_READ_WRITE_TOKEN\s*=\s*/i, "")
+      .replace(/["']/g, "")
+      .replace(/[\s\r\n\t]/g, "")
+      .trim();
+
+    if (!rawToken) {
+      return res.status(400).json({ 
+        error: "กรุณาระบุ Vercel BLOB_READ_WRITE_TOKEN (รูปแบบ 'vercel_blob_rw_...') หรือเลือก 'ใช้ลิงก์ภาพโดยตรง'" 
+      });
     }
 
     if (!base64Data) {
-      return res.status(400).json({ error: "No base64 data provided." });
+      return res.status(400).json({ error: "ไม่พบข้อมูลไฟล์ภาพสำหรับอัปโหลด" });
     }
 
     const buffer = Buffer.from(base64Data, "base64");
@@ -620,14 +786,18 @@ app.post("/api/vercel/blob/upload-base64", async (req, res) => {
     
     const blobResult = await put(nameToUse, buffer, {
       access: "public",
-      token: token,
+      token: rawToken,
       contentType: contentType || "image/jpeg",
     });
 
     res.json({ url: blobResult.url });
   } catch (error: any) {
     console.error("Vercel Blob base64 upload failed:", error);
-    res.status(500).json({ error: error.message || "Failed to upload custom file to Vercel Blob." });
+    let msg = error.message || "Failed to upload custom file to Vercel Blob.";
+    if (msg.includes("VercelBlobError") || msg.includes("Access denied") || msg.includes("token")) {
+      msg = "Vercel Blob Token ไม่ถูกต้อง หรือไม่มีสิทธิ์เข้าถึง Storage กรุณาตรวจสอบว่าคีย์ขึ้นต้นด้วย 'vercel_blob_rw_'";
+    }
+    res.status(500).json({ error: msg });
   }
 });
 

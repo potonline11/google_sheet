@@ -38,44 +38,49 @@ import { EAContent, GoogleSheetInfo } from "./types";
 
 const IMAGE_STYLE_PRESETS = [
   {
-    id: "hologram-matrix",
-    name: "📊 กราฟโฮโลแกรม 3D",
-    promptSuffix: "3D futuristic holographic forex trading matrix with glowing green and golden candlestick charts, floating multi-currency tickers (EURUSD, GBPUSD, XAUUSD), dark high-tech financial command station, volumetric emerald and cyan lighting, octane render, 8k resolution, photorealistic"
+    id: "nexus-commercial",
+    name: "🏆 โปสเตอร์โฆษณาพรีเมียม (มีชื่อโปรแกรมด้านบน + กราฟแท่งเทียน 3D)",
+    promptSuffix: "ultra-detailed cinematic commercial marketing poster. At the very top, large glowing 3D futuristic neon title header banner displaying the exact EA name in bold capital letters with sleek ornamental frame. In the center, bright multi-screen holographic trading station displaying crisp glowing candlestick charts EURUSD, GBPUSD, XAUUSD, profit growth trendline, robotic trading interface, sharp typography, 8k resolution, photorealistic masterpiece"
   },
   {
-    id: "ai-robot-trader",
-    name: "🤖 หุ่นยนต์เทรดเดอร์ AI",
-    promptSuffix: "futuristic sleek metallic AI android trading robot sitting at a high-tech command desk analyzing real-time financial market charts, neon blue and gold trading indicators, titanium textures, cinematic dramatic lighting, photorealistic, 8k resolution"
+    id: "neon-cyber-pop",
+    name: "🍭 ไซเบอร์ป็อป & หุ่นยนต์เทรดเดอร์ (สไตล์ VR Lollipop Trend)",
+    promptSuffix: "highly detailed cinematic image of a sleek modern AI trading robot with cyber-pop neon aesthetic. At the very top, large glowing vibrant neon 3D header text displaying the exact EA name with glowing neon emblem. Center stage shows floating holographic trading displays with glowing candlestick charts, trend statistics, EURUSD GBPUSD indicators, bright vivid magenta and cyan ambient lighting, 8k resolution, masterpiece"
+  },
+  {
+    id: "mt5-dashboard",
+    name: "📈 กราฟแท่งเทียน MT5 & มัลติสกรีนเรดาร์ (มีชื่อ EA ด้านบน)",
+    promptSuffix: "hyper-realistic MetaTrader 5 multi-screen trading command desk. At the very top, bold glowing futuristic neon title text displaying the exact EA name. Center shows vibrant green ascending candlestick charts, technical analysis indicators EMA MACD RSI, currency pair matrix EURUSD GBPUSD USDJPY, glowing financial telemetry dashboard, bright clean fintech lighting, ultra-sharp focus, 8k"
   },
   {
     id: "golden-bull",
-    name: "🐂 กระทิงทองคำวอลล์สตรีท",
-    promptSuffix: "majestic glowing cybernetic golden Wall Street bull standing atop a mountain of rising green candlestick charts, laser data streams, dark luxury titanium background, dramatic volumetric lighting, 8k commercial masterpiece"
+    name: "🐂 กระทิงทองคำ & สถิติกำไรพุ่งทะยาน (มีชื่อ EA ด้านบน)",
+    promptSuffix: "majestic glowing golden cybernetic bull statue before ascending green candlestick charts. At the very top, large glowing gold 3D neon title displaying the exact EA name with luxury fintech laurels. Surrounding are dynamic laser candlestick bars, gold coin flow, forex analytics chart, ultra-bright commercial studio lighting, 8k octane render"
   },
   {
     id: "pro-desk",
-    name: "💻 สเตชั่นโต๊ะเทรดมือโปร",
-    promptSuffix: "sleek curved OLED multi-screen trading monitors displaying real-time MT5 algorithmic EA trading bots, glowing green profit lines, dark mode fintech workstation, ambient gold and emerald neon glow, professional forex trading room, 8k"
+    name: "💻 สเตชั่นโต๊ะเทรดมัลติมอนิเตอร์ระดับโปร",
+    promptSuffix: "high-end luxury multi-monitor trading desk setup with 6 curved 4K OLED screens. At the very top, illuminated neon header bar displaying the exact EA name. Live candlestick charts, algorithmic trading bot status, clean bright penthouse office backdrop, 8k resolution"
   },
   {
-    id: "quantum-core",
-    name: "🌐 เครือข่ายควอนตัม Forex",
-    promptSuffix: "futuristic glowing quantum neural network processing global currency pairs, floating golden fibonacci spirals and forex candlestick data, dark cybernetic fintech background, cinematic 8k render"
+    id: "fintech-matrix",
+    name: "🌐 เครือข่ายควอนตัม & ดาต้าฟินเทค 3D",
+    promptSuffix: "high-tech glowing financial technology matrix. At the very top, bold glowing 3D holographic title displaying the exact EA name. Floating 3D currency symbols, dynamic green candlestick bars, bright illuminated holographic UI, 3D render, 8k"
   }
 ];
 
 const INSTANT_PRO_TRADING_GALLERY = [
   {
+    id: "nexus-robot-trader",
+    title: "🏆 หุ่นยนต์เทรดเดอร์ AI & MT5 กราฟิก NEXUS",
+    badge: "Official Poster",
+    url: "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
     id: "candlestick-pro",
     title: "📈 กราฟแท่งเทียน MT5 & เรดาร์เทรด",
     badge: "Most Popular",
     url: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80"
-  },
-  {
-    id: "ai-bot-fintech",
-    title: "🤖 หุ่นยนต์ AI Cybernetic Forex",
-    badge: "AI Concept",
-    url: "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?auto=format&fit=crop&w=1200&q=80"
   },
   {
     id: "bull-market-gold",
@@ -163,6 +168,7 @@ export default function App() {
   const [showGeminiKeyInput, setShowGeminiKeyInput] = useState(false);
   const [isTestingGeminiKey, setIsTestingGeminiKey] = useState(false);
   const [geminiKeyTestStatus, setGeminiKeyTestStatus] = useState<{ ok: boolean; message: string; model?: string } | null>(null);
+  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [leonardoUsername, setLeonardoUsername] = useState("");
   const [leonardoPassword, setLeonardoPassword] = useState(""); // Can double as API Key
   const [vercelBlobToken, setVercelBlobToken] = useState("");
@@ -170,12 +176,13 @@ export default function App() {
   const [isUploadingToVercelBlob, setIsUploadingToVercelBlob] = useState(false);
   const [customImagePrompt, setCustomImagePrompt] = useState("");
 
-  const [leonardoModel, setLeonardoModel] = useState("free-pollinations"); // Default to Free AI Image Generator
+  const [leonardoModel, setLeonardoModel] = useState("dall-e-3"); // Default to OpenAI DALL-E 3
   const [customModelId, setCustomModelId] = useState("");
-  const [leonardoDimension, setLeonardoDimension] = useState("1024x1024"); // Default to 1024x1024 (best for Phoenix)
+  const [leonardoDimension, setLeonardoDimension] = useState("1024x1024"); // Default to 1024x1024
 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [leonardoStatus, setLeonardoStatus] = useState("");
+  const [imageWorkshopError, setImageWorkshopError] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
   const [imageWorkshopTab, setImageWorkshopTab] = useState<"instant" | "ai">("instant");
 
@@ -211,6 +218,7 @@ export default function App() {
   const [localFileType, setLocalFileType] = useState<string>("");
   const [localFileName, setLocalFileName] = useState<string>("");
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
+  const [vercelBlobStatus, setVercelBlobStatus] = useState<string | null>(null);
 
   // Load from LocalStorage (safe persist of sheet and credentials)
   useEffect(() => {
@@ -251,7 +259,19 @@ export default function App() {
     if (savedGeminiKey) {
       setGeminiApiKey(savedGeminiKey);
     }
+
+    const savedOpenAIKey = localStorage.getItem("custom_openai_api_key");
+    if (savedOpenAIKey) {
+      setOpenaiApiKey(savedOpenAIKey);
+    }
   }, []);
+
+  // Save OpenAI API Key
+  const handleSaveOpenAIKey = (keyVal: string) => {
+    const cleaned = keyVal.replace(/[\s\r\n\t]/g, "").replace(/["']/g, "").trim();
+    setOpenaiApiKey(cleaned);
+    localStorage.setItem("custom_openai_api_key", cleaned);
+  };
 
   // Save Gemini API Key
   const handleSaveGeminiKey = (keyVal: string) => {
@@ -341,9 +361,11 @@ export default function App() {
   };
 
   const handleSaveVercelBlobToken = (tokenVal: string) => {
-    setVercelBlobToken(tokenVal);
-    setVercelToken(tokenVal);
-    localStorage.setItem("vercel_blob_token", tokenVal);
+    const cleaned = tokenVal.replace(/^BLOB_READ_WRITE_TOKEN\s*=\s*/i, "").replace(/["']/g, "").trim();
+    setVercelBlobToken(cleaned);
+    setVercelToken(cleaned);
+    localStorage.setItem("vercel_blob_token", cleaned);
+    setVercelBlobStatus(null);
   };
 
   // Save connected sheet state
@@ -846,16 +868,18 @@ Return ONLY valid JSON matching this schema:
     }
   };
 
-  // 1. Generate Image on Leonardo.ai, Gemini Imagen, or Free Generator using server proxy + client fallback
+  // 1. Generate Image on OpenAI DALL-E 3, Leonardo.ai, Gemini Imagen, or Free Generator
   const handleGenerateLeonardoImage = async () => {
     if (!analysisResult) return;
     setIsGeneratingImage(true);
     setLeonardoStatus(
-      leonardoModel === "gemini-imagen" 
-        ? "กำลังสั่งสร้างรูปภาพด้วย Gemini Image Model..." 
-        : leonardoModel === "free-pollinations" 
-          ? "กำลังสั่งสร้างรูปภาพด้วย Free AI Generator..." 
-          : "กำลังเชื่อมต่อและส่งข้อมูลสเปคภาพ..."
+      leonardoModel === "dall-e-3"
+        ? "กำลังสร้างภาพโฆษณาระดับพรีเมียมด้วย OpenAI DALL-E 3 (HD)..."
+        : leonardoModel === "gemini-imagen" 
+          ? "กำลังสั่งสร้างรูปภาพด้วย Gemini Image Model..." 
+          : leonardoModel === "free-pollinations" 
+            ? "กำลังสั่งสร้างรูปภาพด้วย Free AI Generator..." 
+            : "กำลังเชื่อมต่อและส่งข้อมูลสเปคภาพไปยัง Leonardo.ai..."
     );
     setErrorMessage(null);
 
@@ -868,15 +892,8 @@ Return ONLY valid JSON matching this schema:
     const buildEnrichedPrompt = (basePrompt: string) => {
       let p = (basePrompt || "").trim();
       if (!p) {
-        p = analysisResult?.eaName 
-          ? `3D futuristic high-tech presentation graphic for '${analysisResult.eaName}' MT5 Forex Expert Advisor, glowing green and gold candlestick charts, multi-currency matrix`
-          : "3D futuristic high-tech presentation graphic for MetaTrader 5 Forex Expert Advisor, glowing green and gold candlestick charts";
-      }
-      if (!p.toLowerCase().includes("candlestick") && !p.toLowerCase().includes("trading") && !p.toLowerCase().includes("forex")) {
-        p += ", glowing financial candlestick charts, high-tech fintech trading visual";
-      }
-      if (!p.toLowerCase().includes("8k") && !p.toLowerCase().includes("octane")) {
-        p += ", 3D octane render, 8k resolution, photorealistic cinematic lighting, ultra-detailed fintech advertising";
+        const title = analysisResult?.eaName || "MetaTrader 5 Forex Expert Advisor";
+        p = `Ultra-clean commercial presentation infographic poster for '${title}', bright multi-screen glass trading workstation displaying crisp glowing green and gold EUR/USD candlestick charts, algorithmic trading telemetry, profit curve, modern fintech badges, bright studio backdrop, sharp typography, 8k resolution, photorealistic masterpiece`;
       }
       return p;
     };
@@ -885,20 +902,26 @@ Return ONLY valid JSON matching this schema:
 
     try {
       const sanitizedKey = (leonardoPassword || "").trim();
-      if (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && sanitizedKey.includes("@")) {
+      if (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && leonardoModel !== "dall-e-3" && sanitizedKey.includes("@")) {
         throw new Error("ตรวจพบรูปแบบอีเมลในช่อง API Key: ระบบไม่รองรับการเข้าสู่ระบบ Leonardo.ai ด้วย Gmail หรือรหัสผ่านโดยตรงผ่าน API กรุณาป้อนคีย์ API Key (รหัส UUID 36 หลัก) จากแผงควบคุม Leonardo.ai");
+      }
+
+      if (leonardoModel === "dall-e-3" && !openaiApiKey.trim() && !sanitizedKey.startsWith("sk-")) {
+        throw new Error("กรุณาระบุ OpenAI API Key (ขึ้นต้นด้วย 'sk-...') ในช่องกรอกด้านบน เพื่อสั่งเจนภาพด้วย DALL-E 3");
       }
 
       // 1. Try server-side proxy
       let generationId = "";
+      let directImageUrl = "";
       try {
         const response = await fetch("/api/leonardo/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: finalSafePrompt,
-            clientApiKey: (leonardoModel === "free-pollinations" || leonardoModel === "gemini-imagen") ? "free" : leonardoPassword,
+            clientApiKey: (leonardoModel === "free-pollinations" || leonardoModel === "gemini-imagen" || leonardoModel === "dall-e-3") ? "free" : leonardoPassword,
             geminiApiKey: geminiApiKey.trim() || undefined,
+            openaiApiKey: openaiApiKey.trim() || (sanitizedKey.startsWith("sk-") ? sanitizedKey : undefined),
             width: widthNum,
             height: heightNum,
             modelId: finalModelId || undefined
@@ -907,72 +930,79 @@ Return ONLY valid JSON matching this schema:
 
         const initData = await parseApiResponse(response);
         generationId = initData.sdGenerationJob?.generationId;
-      } catch (serverGenErr: any) {
-        console.warn("Server generation initiation error:", serverGenErr);
-        // Fallback: If free generation fails on server, directly construct client URL
-        if (leonardoModel === "free-pollinations" || !leonardoPassword.trim()) {
-          const randomSeed = Math.floor(Math.random() * 1000000);
-          const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalSafePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&seed=${randomSeed}&model=flux`;
-          setGeneratedImageUrl(directUrl);
-          setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
+        directImageUrl = initData.imageUrl || "";
+
+        // If backend returned immediate image URL
+        if (directImageUrl) {
+          setGeneratedImageUrl(directImageUrl);
+          setLeonardoStatus("✨ สร้างภาพและเปลี่ยนภาพใหม่เรียบร้อยแล้ว!");
           setIsGeneratingImage(false);
           return;
-        } else {
-          throw serverGenErr;
         }
+      } catch (serverGenErr: any) {
+        console.warn("Server generation initiation error:", serverGenErr);
+        throw serverGenErr;
       }
 
       if (!generationId) {
-        // Fallback directly
-        const randomSeed = Math.floor(Math.random() * 1000000);
-        const directUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalSafePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&seed=${randomSeed}&model=flux`;
-        setGeneratedImageUrl(directUrl);
-        setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
-        setIsGeneratingImage(false);
-        return;
+        throw new Error("ไม่สามารถเริ่มคิวงานสร้างภาพได้ กรุณาลองใหม่อีกครั้ง");
       }
 
-      setLeonardoStatus("กำลังสร้างสรรค์ภาพด้วย AI (อาจใช้เวลาประมาณ 10-15 วินาที)...");
+      setLeonardoStatus("กำลังประมวลผลและสร้างสรรค์ภาพด้วย AI...");
+
+      // Helper function to check status
+      const checkStatus = async () => {
+        const statusRes = await fetch(`/api/leonardo/status/${generationId}`, {
+          headers: {
+            "x-leonardo-key": leonardoPassword
+          }
+        });
+
+        const statusData = await parseApiResponse(statusRes);
+        const job = statusData.generations_by_pk;
+        
+        if (!job) {
+          throw new Error("ไม่สามารถดึงข้อมูลสถานะคิวงานได้");
+        }
+
+        if (job.status === "COMPLETE") {
+          const images = job.generated_images || [];
+          if (images.length > 0) {
+            setGeneratedImageUrl(images[0].url);
+            setLeonardoStatus("✨ สร้างภาพสำเร็จเรียบร้อย!");
+            return true;
+          } else {
+            throw new Error("สร้างภาพเสร็จสิ้นแต่ไม่พบผลลัพธ์รูปภาพ");
+          }
+        } else if (job.status === "FAILED") {
+          throw new Error("การสร้างรูปภาพล้มเหลว (Failed)");
+        }
+        return false;
+      };
+
+      // Check immediately first (useful for instantaneous synchronous generators)
+      try {
+        const isDone = await checkStatus();
+        if (isDone) {
+          setIsGeneratingImage(false);
+          return;
+        }
+      } catch (immediateErr: any) {
+        console.warn("Immediate check error:", immediateErr);
+      }
       
-      // Start polling for 20 attempts, 3.5s interval
+      // Start polling for 20 attempts, 3s interval
       let attempts = 0;
       const maxAttempts = 20;
 
       const pollInterval = setInterval(async () => {
         try {
           attempts++;
-          const statusRes = await fetch(`/api/leonardo/status/${generationId}`, {
-            headers: {
-              "x-leonardo-key": leonardoPassword
-            }
-          });
-
-          const statusData = await parseApiResponse(statusRes);
-          const job = statusData.generations_by_pk;
-          
-          if (!job) {
+          const isDone = await checkStatus();
+          if (isDone) {
             clearInterval(pollInterval);
             setIsGeneratingImage(false);
-            setLeonardoStatus("");
-            setErrorMessage("ไม่สามารถดึงข้อมูลสถานะคิวงานได้");
             return;
-          }
-
-          if (job.status === "COMPLETE") {
-            clearInterval(pollInterval);
-            const images = job.generated_images || [];
-            if (images.length > 0) {
-              setGeneratedImageUrl(images[0].url);
-              setLeonardoStatus("สร้างภาพสำเร็จเรียบร้อย!");
-            } else {
-              setErrorMessage("สร้างภาพเสร็จสิ้นแต่ไม่พบผลลัพธ์รูปภาพ");
-            }
-            setIsGeneratingImage(false);
-          } else if (job.status === "FAILED") {
-            clearInterval(pollInterval);
-            setIsGeneratingImage(false);
-            setLeonardoStatus("");
-            setErrorMessage("การสร้างรูปภาพจากฝั่ง Leonardo.ai ล้มเหลว (Failed)");
           } else {
             setLeonardoStatus(`กำลังเจนภาพ... (ลองครั้งที่ ${attempts}/${maxAttempts})`);
           }
@@ -981,24 +1011,23 @@ Return ONLY valid JSON matching this schema:
             clearInterval(pollInterval);
             setIsGeneratingImage(false);
             setLeonardoStatus("");
-            setErrorMessage("การสร้างรูปภาพใช้เวลานานเกินกำหนด กรุณาลองใหม่อีกครั้ง");
+            setImageWorkshopError("การสร้างรูปภาพใช้เวลานานเกินกำหนด กรุณาลองใหม่อีกครั้ง");
           }
         } catch (pollErr: any) {
           clearInterval(pollInterval);
           setIsGeneratingImage(false);
           setLeonardoStatus("");
-          setErrorMessage(pollErr.message || "เกิดข้อผิดพลาดในการตรวจสอบความคืบหน้า");
+          setImageWorkshopError(pollErr.message || "เกิดข้อผิดพลาดในการตรวจสอบความคืบหน้า");
         }
-      }, 3500);
+      }, 3000);
 
     } catch (err: any) {
-      console.error("Leonardo error:", err);
-      // If error occurs, fallback to direct Pollinations image so user is never blocked
-      const randomSeed = Math.floor(Math.random() * 1000000);
-      const fallbackUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(finalSafePrompt)}?width=${widthNum}&height=${heightNum}&nologo=true&seed=${randomSeed}&model=flux`;
-      setGeneratedImageUrl(fallbackUrl);
-      setLeonardoStatus("สร้างภาพสำเร็จด้วยระบบสำรอง!");
+      console.error("Image generation error:", err);
+      const errMsg = err.message || "การสร้างรูปภาพล้มเหลว กรุณาตรวจสอบคีย์หรือเลือกโมเดลอื่น";
       setIsGeneratingImage(false);
+      setLeonardoStatus("");
+      setImageWorkshopError(errMsg);
+      setErrorMessage(errMsg);
     }
   };
 
@@ -1022,17 +1051,27 @@ Return ONLY valid JSON matching this schema:
 
   // 3. Upload image to Vercel Blob (supports Leonardo.ai generated image or direct local files)
   const handleUploadToVercelBlob = async () => {
-    if (!localFileBase64 && !generatedImageUrl) {
-      setErrorMessage("กรุณาสร้างภาพจาก Leonardo.ai หรือเลือกไฟล์ภาพจากเครื่องของท่านก่อนทำการอัปโหลด");
+    const imageToUpload = localFileBase64 || generatedImageUrl;
+    if (!imageToUpload) {
+      setErrorMessage("กรุณาสร้างภาพหรือเลือกรูปภาพจากคลัง/เครื่องของท่านก่อนทำการอัปโหลด");
       return;
     }
-    if (!vercelBlobToken.trim()) {
-      setErrorMessage("กรุณาระบุ Vercel BLOB_READ_WRITE_TOKEN เพื่อเชื่อมต่อ");
+    
+    const cleanedToken = vercelBlobToken
+      .replace(/^BLOB_READ_WRITE_TOKEN\s*=\s*/i, "")
+      .replace(/["']/g, "")
+      .replace(/[\s\r\n\t]/g, "")
+      .trim();
+
+    if (!cleanedToken) {
+      setErrorMessage("กรุณาระบุ Vercel BLOB_READ_WRITE_TOKEN หรือคลิกปุ่ม '⚡ ใช้รูปนี้ทันที' หากไม่ต้องการใช้งาน Vercel");
+      setVercelBlobStatus("⚠️ ยังไม่ได้ระบุ BLOB_READ_WRITE_TOKEN หรือสามารถกดปุ่ม '⚡ ใช้รูปนี้ทันที' ด้านล่างได้เลย");
       return;
     }
 
     setIsUploadingToVercelBlob(true);
     setErrorMessage(null);
+    setVercelBlobStatus("กำลังอัปโหลดรูปภาพเข้าสู่ Vercel Blob Storage...");
 
     try {
       let response;
@@ -1043,7 +1082,7 @@ Return ONLY valid JSON matching this schema:
           body: JSON.stringify({
             base64Data: localFileBase64,
             contentType: localFileType,
-            customToken: vercelBlobToken,
+            customToken: cleanedToken,
             fileName: analysisResult 
               ? `${analysisResult.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}_${Date.now()}_${localFileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}` 
               : `uploaded_${Date.now()}_${localFileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}`
@@ -1055,7 +1094,7 @@ Return ONLY valid JSON matching this schema:
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             imageUrl: generatedImageUrl,
-            customToken: vercelBlobToken,
+            customToken: cleanedToken,
             fileName: analysisResult ? `${analysisResult.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}_${Date.now()}.jpg` : `ea_image_${Date.now()}.jpg`
           })
         });
@@ -1063,9 +1102,12 @@ Return ONLY valid JSON matching this schema:
 
       const data = await parseApiResponse(response);
       setVercelBlobUrl(data.url);
+      setVercelBlobStatus("อัปโหลดสำเร็จแล้ว! ลิงก์พร้อมส่งเข้า Google Sheets เรียบร้อย");
     } catch (err: any) {
       console.error("Upload to Vercel Blob failed:", err);
-      setErrorMessage(err.message || "ไม่สามารถอัปโหลดรูปไปยัง Vercel Blob ได้");
+      const errMsg = err.message || "ไม่สามารถอัปโหลดรูปไปยัง Vercel Blob ได้";
+      setErrorMessage(errMsg);
+      setVercelBlobStatus(`❌ ข้อผิดพลาด: ${errMsg}`);
     } finally {
       setIsUploadingToVercelBlob(false);
     }
@@ -2056,9 +2098,10 @@ Return ONLY valid JSON matching this schema:
                               setLeonardoModel(e.target.value);
                               localStorage.setItem("leonardo_model", e.target.value);
                             }}
-                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-medium"
                           >
-                            <option value="gemini-imagen">✨ Google Gemini Imagen 3 (ใช้คีย์ Gemini ด้านบน - แนะนำ)</option>
+                            <option value="dall-e-3">👑 OpenAI DALL-E 3 (สร้างโปสเตอร์ & Infographic แบบภาพ NEXUS - แนะนำสูงสุด)</option>
+                            <option value="gemini-imagen">✨ Google Gemini Imagen 3 (ใช้คีย์ Gemini ด้านบน)</option>
                             <option value="free-pollinations">✨ Free AI Generator (ฟรี ไม่ต้องใช้คีย์)</option>
                             <option value="6bef9f1b-71cb-40e7-96a2-21e14026187e">Leonardo Phoenix (ลายเส้นคมชัด สะกดคำแม่น)</option>
                             <option value="5c232a9e-9040-4777-9f40-7e15c54047f0">Leonardo Vision XL (ภาพถ่ายเสมือนจริง 3D / Realistic)</option>
@@ -2069,7 +2112,45 @@ Return ONLY valid JSON matching this schema:
                           </select>
                         </div>
 
-                        {leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && (
+                        {/* OpenAI DALL-E 3 API Key Card */}
+                        {leonardoModel === "dall-e-3" && (
+                          <div className="flex flex-col gap-1.5 mt-1 border border-emerald-200 p-2.5 rounded-lg bg-emerald-50/40">
+                            <div className="flex items-center justify-between">
+                              <label className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                                <Key className="w-3.5 h-3.5 text-emerald-600" /> คีย์ OpenAI API Key (DALL-E 3)
+                              </label>
+                              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
+                                HD Quality & Infographic
+                              </span>
+                            </div>
+                            <input
+                              type="password"
+                              value={openaiApiKey}
+                              onChange={(e) => handleSaveOpenAIKey(e.target.value)}
+                              placeholder="วาง OpenAI API Key (รูปแบบ sk-proj-... หรือ sk-...)"
+                              className="w-full text-xs bg-white border border-emerald-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
+                            />
+                            <div className="flex flex-col gap-0.5 text-[9.5px] text-slate-600">
+                              <span>
+                                💡 รับหรือสร้าง API Key ได้ที่{" "}
+                                <a
+                                  href="https://platform.openai.com/api-keys"
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="underline font-semibold text-emerald-700 hover:text-emerald-800"
+                                >
+                                  platform.openai.com/api-keys
+                                </a>
+                              </span>
+                              <span className="text-emerald-700 font-medium">
+                                ✨ DALL-E 3 เป็นโมเดลเดียวที่สามารถสะกดชื่อ EA, แสดงกราฟแท่งเทียน, และทำเลย์เอาต์ Infographic สวยเหมือนภาพตัวอย่าง NEXUS
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Leonardo.ai API Key Card */}
+                        {leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && leonardoModel !== "dall-e-3" && (
                           <div className="flex flex-col gap-1 mt-1 border border-pink-100 p-2.5 rounded-lg bg-pink-50/30">
                             <label className="text-[10px] font-bold text-pink-700 flex items-center gap-1">
                               <Key className="w-3 h-3 text-pink-500" /> คีย์ API ของ Leonardo.ai
@@ -2145,7 +2226,7 @@ Return ONLY valid JSON matching this schema:
                                 if (analysisResult?.imagePrompt) {
                                   setCustomImagePrompt(analysisResult.imagePrompt);
                                 } else if (analysisResult?.eaName) {
-                                  setCustomImagePrompt(`3D futuristic high-tech presentation graphic for '${analysisResult.eaName}' MT5 Forex Expert Advisor, glowing green and gold candlestick charts, multi-currency holographic matrix, octane render, 8k resolution, cinematic lighting, masterpiece`);
+                                  setCustomImagePrompt(`A highly detailed, cinematic commercial presentation poster of a sleek modern AI trading robot and MT5 workstation. At the very top, large glowing vibrant 3D neon header text displaying '${analysisResult.eaName}'. Center shows floating holographic displays with glowing candlestick charts, trend statistics, EURUSD GBPUSD indicators, bright vivid lighting, 8k resolution, masterpiece`);
                                 }
                               }}
                               className="text-[9px] text-pink-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
@@ -2160,7 +2241,7 @@ Return ONLY valid JSON matching this schema:
                                 type="button"
                                 onClick={() => {
                                   const eaTitle = analysisResult?.eaName || "Forex EA Trading Bot";
-                                  setCustomImagePrompt(`A premium commercial presentation visual for '${eaTitle}', ${preset.promptSuffix}`);
+                                  setCustomImagePrompt(`A premium commercial presentation poster visual for '${eaTitle}'. ${preset.promptSuffix.replace("the exact EA name", `'${eaTitle}'`)}`);
                                 }}
                                 className="text-[10px] font-semibold text-slate-700 bg-white hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 border border-slate-200 rounded-lg p-1.5 text-left transition-all flex items-center gap-1 shadow-xs cursor-pointer"
                               >
@@ -2177,8 +2258,8 @@ Return ONLY valid JSON matching this schema:
                               type="button"
                               onClick={() => {
                                 const cur = customImagePrompt || analysisResult?.imagePrompt || "";
-                                if (!cur.includes("candlestick") && !cur.includes("forex")) {
-                                  setCustomImagePrompt(`${cur}, glowing financial candlestick charts, high-tech fintech trading visual, 3D octane render, 8k resolution, photorealistic cinematic lighting`);
+                                if (!cur.includes("candlestick") && !cur.includes("MetaTrader")) {
+                                  setCustomImagePrompt(`${cur}, commercial presentation infographic poster, multi-screen glass workstation, ultra-crisp glowing green and gold EUR/USD candlestick charts, algorithmic trading indicators, bright clean studio backdrop, sharp typography, 8k resolution, photorealistic masterpiece`);
                                 }
                               }}
                               className="text-[9px] text-indigo-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
@@ -2196,8 +2277,14 @@ Return ONLY valid JSON matching this schema:
 
                         <button
                           onClick={handleGenerateLeonardoImage}
-                          disabled={isGeneratingImage || (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && !leonardoPassword.trim())}
-                          className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed"
+                          disabled={
+                            isGeneratingImage ||
+                            (leonardoModel === "dall-e-3" ? !openaiApiKey.trim() :
+                             leonardoModel === "gemini-imagen" ? !geminiApiKey.trim() :
+                             leonardoModel === "free-pollinations" ? false :
+                             !leonardoPassword.trim())
+                          }
+                          className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-300 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed shadow-sm"
                         >
                           {isGeneratingImage ? (
                             <>
@@ -2211,11 +2298,30 @@ Return ONLY valid JSON matching this schema:
                             </>
                           )}
                         </button>
+
+                        {leonardoModel === "dall-e-3" && !openaiApiKey.trim() && (
+                          <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 p-1.5 rounded text-center">
+                            💡 กรุณาวาง <strong>OpenAI API Key</strong> ด้านบน หรือเลือก <strong>Free AI Generator</strong> เพื่อสร้างภาพทันที
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
 
                   <div className="mt-2 flex flex-col gap-2">
+                    {imageWorkshopError && (
+                      <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 flex items-start gap-1.5 text-[11px] text-rose-700 animate-fade-in">
+                        <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="font-semibold text-rose-800">สร้างภาพไม่สำเร็จ:</p>
+                          <p>{imageWorkshopError}</p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            💡 คำแนะนำ: หาก OpenAI โควตาหมด สามารถเลือกโมเดล <strong>⚡ Free AI Generator</strong> หรือ <strong>✨ Google Gemini</strong> แทนได้ทันที
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {generatedImageUrl && (
                       <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-950 flex flex-col items-center p-2.5 gap-2 shadow-inner">
                         <img 
@@ -2361,18 +2467,21 @@ Return ONLY valid JSON matching this schema:
                       <span>3. บันทึกถาวร (Vercel Blobs)</span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      อัปโหลดเก็บรูปภาพโฆษณาถาวรลงใน Vercel Blob Storage เพื่อนำไปใช้เป็นลิงก์ภาพที่ไม่มีวันเสียหายลงใน Google Sheets
+                      อัปโหลดเก็บรูปภาพโฆษณาถาวรลงใน Vercel Blob Storage เพื่อนำไปใช้เป็นลิงก์ภาพลงใน Google Sheets หรือกดใช้ลิงก์ภาพโดยตรงได้ทันที
                     </p>
 
                     <div className="flex flex-col gap-1 mt-1">
-                      <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
-                        <Key className="w-3 h-3 text-slate-400" /> Vercel BLOB_READ_WRITE_TOKEN
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                          <Key className="w-3 h-3 text-slate-400" /> Vercel BLOB_READ_WRITE_TOKEN
+                        </label>
+                        <span className="text-[9px] text-slate-400">vercel_blob_rw_...</span>
+                      </div>
                       <input
                         type="password"
                         value={vercelBlobToken}
                         onChange={(e) => handleSaveVercelBlobToken(e.target.value)}
-                        placeholder="วาง BLOB_READ_WRITE_TOKEN..."
+                        placeholder="วางคีย์ BLOB_READ_WRITE_TOKEN..."
                         className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
                       />
                     </div>
@@ -2406,10 +2515,22 @@ Return ONLY valid JSON matching this schema:
                       </div>
                     )}
 
+                    {vercelBlobStatus && (
+                      <div className={`p-2 rounded-lg text-[10px] font-medium ${
+                        vercelBlobStatus.startsWith("❌") || vercelBlobStatus.startsWith("⚠️") 
+                          ? "bg-rose-50 border border-rose-200 text-rose-700" 
+                          : vercelBlobStatus.includes("สำเร็จ") 
+                            ? "bg-emerald-50 border border-emerald-200 text-emerald-700" 
+                            : "bg-indigo-50 border border-indigo-200 text-indigo-700"
+                      }`}>
+                        {vercelBlobStatus}
+                      </div>
+                    )}
+
                     {vercelBlobUrl && (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-left flex flex-col gap-1 text-[10px]">
                         <p className="text-emerald-700 font-bold flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" /> อัปโหลดสำเร็จลิงก์ถาวรแล้ว!
+                          <Check className="w-3.5 h-3.5" /> ลิงก์รูปภาพพร้อมส่งเข้า Google Sheets แล้ว!
                         </p>
                         <a 
                           href={vercelBlobUrl} 
@@ -2426,8 +2547,8 @@ Return ONLY valid JSON matching this schema:
                   <div className="mt-2 flex flex-col gap-2">
                     <button
                       onClick={handleUploadToVercelBlob}
-                      disabled={isUploadingToVercelBlob || !vercelBlobToken.trim() || (!generatedImageUrl && !localFileBase64)}
-                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed"
+                      disabled={isUploadingToVercelBlob || (!generatedImageUrl && !localFileBase64)}
+                      className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed shadow-xs"
                     >
                       {isUploadingToVercelBlob ? (
                         <>
@@ -2441,6 +2562,20 @@ Return ONLY valid JSON matching this schema:
                         </>
                       )}
                     </button>
+
+                    {(generatedImageUrl || localPreviewUrl) && (
+                      <button
+                        onClick={() => {
+                          const targetUrl = localPreviewUrl || generatedImageUrl || "";
+                          setVercelBlobUrl(targetUrl);
+                          setVercelBlobStatus("✅ เลือกใช้ภาพนี้โดยตรง พร้อมส่งลง Google Sheets แล้ว (ไม่ต้องผ่าน Vercel Blob)");
+                        }}
+                        className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span>⚡ ใช้รูปนี้ตรงๆ ทันที (ไม่ต้องใช้ Vercel Token)</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
