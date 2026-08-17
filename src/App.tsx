@@ -1074,34 +1074,115 @@ Return ONLY valid JSON matching this schema:
     setVercelBlobStatus("กำลังอัปโหลดรูปภาพเข้าสู่ Vercel Blob Storage...");
 
     try {
-      let response;
+      let finalUploadedUrl = "";
+
+      // Check if image is local base64 or external URL
       if (localFileBase64) {
-        response = await fetch("/api/vercel/blob/upload-base64", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            base64Data: localFileBase64,
-            contentType: localFileType,
-            customToken: cleanedToken,
-            fileName: analysisResult 
-              ? `${analysisResult.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}_${Date.now()}_${localFileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}` 
-              : `uploaded_${Date.now()}_${localFileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}`
-          })
-        });
+        // Convert base64 to File / Blob
+        const byteCharacters = atob(localFileBase64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const fileBlob = new Blob([byteArray], { type: localFileType || "image/jpeg" });
+        const nameToUse = analysisResult 
+          ? `${analysisResult.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}_${Date.now()}_${localFileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}` 
+          : `uploaded_${Date.now()}_${localFileName.toLowerCase().replace(/[^a-z0-9.-]/g, "-")}`;
+
+        // Attempt 1: Direct client-side upload via Vercel Blob API
+        try {
+          const directRes = await fetch(`https://blob.vercel-storage.com/${nameToUse}`, {
+            method: "PUT",
+            headers: {
+              "authorization": `Bearer ${cleanedToken}`,
+              "x-api-version": "7",
+              "content-type": localFileType || "image/jpeg"
+            },
+            body: fileBlob
+          });
+
+          if (directRes.ok) {
+            const blobData = await directRes.json();
+            finalUploadedUrl = blobData.url;
+          }
+        } catch (directErr) {
+          console.warn("Direct blob upload attempt failed, trying backend proxy:", directErr);
+        }
+
+        // Attempt 2: Server-side proxy if direct didn't return URL
+        if (!finalUploadedUrl) {
+          const response = await fetch("/api/vercel/blob/upload-base64", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              base64Data: localFileBase64,
+              contentType: localFileType,
+              customToken: cleanedToken,
+              fileName: nameToUse
+            })
+          });
+          const data = await parseApiResponse(response);
+          finalUploadedUrl = data.url;
+        }
       } else {
-        response = await fetch("/api/vercel/blob/upload", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageUrl: generatedImageUrl,
-            customToken: cleanedToken,
-            fileName: analysisResult ? `${analysisResult.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}_${Date.now()}.jpg` : `ea_image_${Date.now()}.jpg`
-          })
-        });
+        // For generated image (external URL or base64)
+        const nameToUse = analysisResult 
+          ? `${analysisResult.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-")}_${Date.now()}.jpg` 
+          : `ea_image_${Date.now()}.jpg`;
+
+        // If generatedImageUrl is base64 data URL
+        if (generatedImageUrl.startsWith("data:")) {
+          const parts = generatedImageUrl.split(",");
+          const mime = parts[0].match(/:(.*?);/)?.[1] || "image/jpeg";
+          const bstr = atob(parts[1]);
+          let n = bstr.length;
+          const u8arr = new Uint8Array(n);
+          while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+          }
+          const fileBlob = new Blob([u8arr], { type: mime });
+
+          try {
+            const directRes = await fetch(`https://blob.vercel-storage.com/${nameToUse}`, {
+              method: "PUT",
+              headers: {
+                "authorization": `Bearer ${cleanedToken}`,
+                "x-api-version": "7",
+                "content-type": mime
+              },
+              body: fileBlob
+            });
+            if (directRes.ok) {
+              const blobData = await directRes.json();
+              finalUploadedUrl = blobData.url;
+            }
+          } catch (directErr) {
+            console.warn("Direct blob upload for data URL failed:", directErr);
+          }
+        }
+
+        // Server-side proxy fallback
+        if (!finalUploadedUrl) {
+          const response = await fetch("/api/vercel/blob/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageUrl: generatedImageUrl,
+              customToken: cleanedToken,
+              fileName: nameToUse
+            })
+          });
+          const data = await parseApiResponse(response);
+          finalUploadedUrl = data.url;
+        }
       }
 
-      const data = await parseApiResponse(response);
-      setVercelBlobUrl(data.url);
+      if (!finalUploadedUrl) {
+        throw new Error("ไม่ได้รับ URL รูปภาพจาก Vercel Blob กรุณาตรวจสอบสิทธิ์ของ BLOB_READ_WRITE_TOKEN");
+      }
+
+      setVercelBlobUrl(finalUploadedUrl);
       setVercelBlobStatus("อัปโหลดสำเร็จแล้ว! ลิงก์พร้อมส่งเข้า Google Sheets เรียบร้อย");
     } catch (err: any) {
       console.error("Upload to Vercel Blob failed:", err);
