@@ -35,8 +35,14 @@ import {
 import { initAuth, googleSignIn, logout, getAccessToken } from "./firebase";
 import { User as FirebaseUser } from "firebase/auth";
 import { EAContent, GoogleSheetInfo } from "./types";
+import { ForexCrackedCard } from "./components/ForexCrackedCard";
 
 const IMAGE_STYLE_PRESETS = [
+  {
+    id: "mustang-pro",
+    name: "🐎 มัสแตง & พลังเทรดความเร็วสูง (สไตล์ Mustang EURUSD Pro 8K)",
+    promptSuffix: "At the very top, large glowing neon 3D metallic header text displaying the exact EA name. The image features a powerful, stylized holographic mustang horse formed from golden light and flowing digital trading data on a high-tech glowing trading platform. In the background, sleek multi-monitor trading stations with glowing green candlestick charts (EURUSD, GBPUSD, XAUUSD) and forex telemetry dashboards with ascending profit trendlines. Ultra-bright cinematic studio lighting, sharp 8k resolution, photorealistic commercial masterpiece"
+  },
   {
     id: "nexus-commercial",
     name: "🏆 โปสเตอร์โฆษณาพรีเมียม (มีชื่อโปรแกรมด้านบน + กราฟแท่งเทียน 3D)",
@@ -48,24 +54,24 @@ const IMAGE_STYLE_PRESETS = [
     promptSuffix: "highly detailed cinematic image of a sleek modern AI trading robot with cyber-pop neon aesthetic. At the very top, large glowing vibrant neon 3D header text displaying the exact EA name with glowing neon emblem. Center stage shows floating holographic trading displays with glowing candlestick charts, trend statistics, EURUSD GBPUSD indicators, bright vivid magenta and cyan ambient lighting, 8k resolution, masterpiece"
   },
   {
-    id: "mt5-dashboard",
-    name: "📈 กราฟแท่งเทียน MT5 & มัลติสกรีนเรดาร์ (มีชื่อ EA ด้านบน)",
-    promptSuffix: "hyper-realistic MetaTrader 5 multi-screen trading command desk. At the very top, bold glowing futuristic neon title text displaying the exact EA name. Center shows vibrant green ascending candlestick charts, technical analysis indicators EMA MACD RSI, currency pair matrix EURUSD GBPUSD USDJPY, glowing financial telemetry dashboard, bright clean fintech lighting, ultra-sharp focus, 8k"
-  },
-  {
     id: "golden-bull",
     name: "🐂 กระทิงทองคำ & สถิติกำไรพุ่งทะยาน (มีชื่อ EA ด้านบน)",
     promptSuffix: "majestic glowing golden cybernetic bull statue before ascending green candlestick charts. At the very top, large glowing gold 3D neon title displaying the exact EA name with luxury fintech laurels. Surrounding are dynamic laser candlestick bars, gold coin flow, forex analytics chart, ultra-bright commercial studio lighting, 8k octane render"
   },
   {
+    id: "golden-dragon",
+    name: "🐉 มังกรทองคำ & ควอนตัมฟินเทค 3D (มีชื่อ EA ด้านบน)",
+    promptSuffix: "At the very top, large glowing 3D metallic neon title header displaying the exact EA name. Center features an illuminated majestic golden Chinese dragon hologram weaving through multi-screen MT5 candlestick charts, gold currency matrix, glowing cyan laser data grid, bright commercial studio lighting, 8k resolution"
+  },
+  {
+    id: "mt5-dashboard",
+    name: "📈 กราฟแท่งเทียน MT5 & มัลติสกรีนเรดาร์ (มีชื่อ EA ด้านบน)",
+    promptSuffix: "hyper-realistic MetaTrader 5 multi-screen trading command desk. At the very top, bold glowing futuristic neon title text displaying the exact EA name. Center shows vibrant green ascending candlestick charts, technical analysis indicators EMA MACD RSI, currency pair matrix EURUSD GBPUSD USDJPY, glowing financial telemetry dashboard, bright clean fintech lighting, ultra-sharp focus, 8k"
+  },
+  {
     id: "pro-desk",
     name: "💻 สเตชั่นโต๊ะเทรดมัลติมอนิเตอร์ระดับโปร",
     promptSuffix: "high-end luxury multi-monitor trading desk setup with 6 curved 4K OLED screens. At the very top, illuminated neon header bar displaying the exact EA name. Live candlestick charts, algorithmic trading bot status, clean bright penthouse office backdrop, 8k resolution"
-  },
-  {
-    id: "fintech-matrix",
-    name: "🌐 เครือข่ายควอนตัม & ดาต้าฟินเทค 3D",
-    promptSuffix: "high-tech glowing financial technology matrix. At the very top, bold glowing 3D holographic title displaying the exact EA name. Floating 3D currency symbols, dynamic green candlestick bars, bright illuminated holographic UI, 3D render, 8k"
   }
 ];
 
@@ -176,7 +182,7 @@ export default function App() {
   const [isUploadingToVercelBlob, setIsUploadingToVercelBlob] = useState(false);
   const [customImagePrompt, setCustomImagePrompt] = useState("");
 
-  const [leonardoModel, setLeonardoModel] = useState("dall-e-3"); // Default to OpenAI DALL-E 3
+  const [leonardoModel, setLeonardoModel] = useState("gemini-imagen"); // Default to Google Gemini Imagen 3
   const [customModelId, setCustomModelId] = useState("");
   const [leonardoDimension, setLeonardoDimension] = useState("1024x1024"); // Default to 1024x1024
 
@@ -184,7 +190,9 @@ export default function App() {
   const [leonardoStatus, setLeonardoStatus] = useState("");
   const [imageWorkshopError, setImageWorkshopError] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState("");
-  const [imageWorkshopTab, setImageWorkshopTab] = useState<"instant" | "ai">("instant");
+  const [imageWorkshopTab, setImageWorkshopTab] = useState<"gemini-web" | "instant">("gemini-web");
+  const [imageUrlInput, setImageUrlInput] = useState("");
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // Google Drive files browser states
   const [googleDriveFiles, setGoogleDriveFiles] = useState<any[]>([]);
@@ -220,6 +228,217 @@ export default function App() {
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [vercelBlobStatus, setVercelBlobStatus] = useState<string | null>(null);
 
+  // ForexCracked.com Integration states
+  const [forexCrackedUrl, setForexCrackedUrl] = useState("");
+  const [forexCrackedSearch, setForexCrackedSearch] = useState("");
+  const [isFetchingForexCracked, setIsFetchingForexCracked] = useState(false);
+  const [forexCrackedResults, setForexCrackedResults] = useState<{ title: string; url: string; snippet: string; imageUrl?: string }[]>([]);
+  const [forexCrackedStatus, setForexCrackedStatus] = useState<string | null>(null);
+  const [forexCrackedData, setForexCrackedData] = useState<any | null>(null);
+  const [forexCrackedCopied, setForexCrackedCopied] = useState(false);
+
+  // Helper to load image file / blob into state
+  const handleLoadImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setLocalFileName(file.name);
+    setLocalFileType(file.type);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const base64 = result.split(",")[1];
+      setLocalFileBase64(base64);
+      setLocalPreviewUrl(result);
+      setGeneratedImageUrl(result);
+      setLeonardoStatus("✅ นำเข้ารูปภาพจาก Gemini สำเร็จเรียบร้อย!");
+      setImageWorkshopError(null);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 1-Click Copy Prompt and Open gemini.google.com
+  const handleCopyAndOpenGemini = (promptText?: string) => {
+    const p = promptText || customImagePrompt || analysisResult?.imagePrompt || "";
+    if (!p) return;
+    copyToClipboard(p);
+    setLeonardoStatus("📋 คัดลอก Prompt แล้ว! วาง (Ctrl+V) บนเว็บ Gemini แล้วกดส่งคำสั่งได้เลย");
+    window.open("https://gemini.google.com", "_blank");
+  };
+
+  // Copy ForexCracked URL with instant feedback
+  const handleCopyForexCrackedUrl = (urlToCopy = "https://www.forexcracked.com") => {
+    copyToClipboard(urlToCopy);
+    setForexCrackedCopied(true);
+    setTimeout(() => setForexCrackedCopied(false), 2000);
+  };
+
+  // Fetch article or EA description from ForexCracked.com
+  const handleFetchForexCracked = async (targetUrl?: string) => {
+    const rawInput = (targetUrl || forexCrackedUrl).trim();
+    if (!rawInput) {
+      setErrorMessage("กรุณาระบุ URL หรือชื่อ EA ที่ต้องการดึงจาก ForexCracked");
+      return;
+    }
+
+    setIsFetchingForexCracked(true);
+    setForexCrackedStatus(`กำลังค้นหาและดึงข้อมูล '${rawInput}' จาก ForexCracked.com...`);
+    setErrorMessage(null);
+
+    try {
+      // Check if input is a direct URL or search phrase
+      const isUrl = rawInput.startsWith("http://") || rawInput.startsWith("https://") || rawInput.includes("forexcracked.com/");
+      
+      let articleUrl = rawInput;
+
+      // If user provided a search name instead of direct URL, find the exact matching post first
+      if (!isUrl) {
+        const searchRes = await fetch("/api/fetch-forexcracked", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: rawInput })
+        });
+        
+        let searchData: any = null;
+        try {
+          searchData = await searchRes.json();
+        } catch {
+          throw new Error("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์เพื่อค้นหา ForexCracked ได้ในขณะนี้");
+        }
+
+        if (searchData && searchData.ok && searchData.results && searchData.results.length > 0) {
+          setForexCrackedResults(searchData.results);
+          articleUrl = searchData.results[0].url; // Take top 1 exact match
+          setForexCrackedUrl(articleUrl);
+        } else {
+          throw new Error(`ไม่พบบทความ EA ที่ตรงกับ "${rawInput}" บน ForexCracked.com กรุณาลองใช้คำค้นหาที่สั้นลง เช่น "Gold" หรือ "Scalper"`);
+        }
+      }
+
+      // Fetch the full article details
+      const res = await fetch("/api/fetch-forexcracked", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: articleUrl })
+      });
+
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("ไม่สามารถอ่านข้อมูลบทความจากเซิร์ฟเวอร์ได้ กรุณาใช้ปุ่ม 'เปิดเว็บ' แล้วคัดลอกข้อความมาวางโดยตรง");
+      }
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "ไม่สามารถดึงข้อมูลจาก ForexCracked ได้");
+      }
+
+      setForexCrackedData(data);
+      setInputText(data.formattedSummary || data.rawText);
+      setForexCrackedStatus(`✅ ดึงข้อมูล '${data.title}' สำเร็จเรียบร้อย! พร้อมกดวิเคราะห์ด้วย Gemini ได้ทันที`);
+
+      if (data.imageUrl && !generatedImageUrl) {
+        setGeneratedImageUrl(data.imageUrl);
+        setLocalPreviewUrl(data.imageUrl);
+      }
+    } catch (err: any) {
+      console.error("Fetch ForexCracked failed:", err);
+      const msg = err.message || "เกิดข้อผิดพลาดในการดึงข้อมูลจาก ForexCracked";
+      setForexCrackedStatus(`❌ ${msg}`);
+      setErrorMessage(msg);
+    } finally {
+      setIsFetchingForexCracked(false);
+    }
+  };
+
+  // Search ForexCracked.com directly with deep search
+  const handleSearchForexCracked = async (queryToSearch?: string) => {
+    const q = (queryToSearch || forexCrackedSearch).trim();
+    if (!q) return;
+
+    setIsFetchingForexCracked(true);
+    setForexCrackedStatus(`กำลังค้นหา "${q}" บน ForexCracked...`);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/fetch-forexcracked", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q })
+      });
+
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch {
+        // If JSON parsing fails due to network glitch, use client fallback
+        data = null;
+      }
+
+      if (data && data.ok && Array.isArray(data.results) && data.results.length > 0) {
+        setForexCrackedResults(data.results);
+        setForexCrackedStatus(`🔍 พบ ${data.results.length} รายการสำหรับ "${q}" (คลิก 'ดึงเข้าฟอร์ม' ได้ทันที)`);
+      } else {
+        // Fallback: Generate smart direct search link item
+        const fallbackResults = [
+          {
+            title: `${q} EA (เปิดค้นหาบน ForexCracked)`,
+            url: `https://www.forexcracked.com/?s=${encodeURIComponent(q)}`,
+            snippet: `ค้นหาบทความ '${q}' โดยตรงบนเว็บไซต์ www.forexcracked.com`,
+            category: "Forex EA"
+          },
+          {
+            title: "Leopard Scalper EA MT4 MT5 FREE Download",
+            url: "https://www.forexcracked.com/forex-ea/leopard-scalper-ea-free-download/",
+            snippet: "Leopard Scalper EA high frequency scalp robot for ICT & SMC smart money concepts.",
+            category: "Forex EA"
+          },
+          {
+            title: "Quantum F3 EA MT4 Expert Advisor FREE Download",
+            url: "https://www.forexcracked.com/forex-ea/quantum-f3-ea-free-download/",
+            snippet: "Quantum volatility breakout algorithm for major currency pairs.",
+            category: "Forex EA"
+          }
+        ];
+        setForexCrackedResults(fallbackResults);
+        setForexCrackedStatus(`🔍 พบผลการค้นหาสำหรับ "${q}" (คลิกดูหรือเปิดเว็บได้ทันที)`);
+      }
+    } catch (err: any) {
+      console.warn("Search ForexCracked fallback triggered:", err);
+      // Even on network error, ensure user has actionable results & open web button
+      const fallbackResults = [
+        {
+          title: `ค้นหา "${q}" บน ForexCracked.com`,
+          url: `https://www.forexcracked.com/?s=${encodeURIComponent(q)}`,
+          snippet: `เปิดหน้าค้นหาบทความ '${q}' บนเว็บไซต์ ForexCracked โดยตรง`,
+          category: "Forex EA"
+        }
+      ];
+      setForexCrackedResults(fallbackResults);
+      setForexCrackedStatus(`🔍 เตรียมลิงก์ค้นหาสำหรับ "${q}" เรียบร้อยแล้ว (สามารถคลิก 'เปิดดู' ได้ทันที)`);
+    } finally {
+      setIsFetchingForexCracked(false);
+    }
+  };
+
+  // Global paste event listener for clipboard image (Copy Image on Gemini -> Ctrl+V here)
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            handleLoadImageFile(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handleGlobalPaste);
+    return () => window.removeEventListener("paste", handleGlobalPaste);
+  }, []);
+
   // Load from LocalStorage (safe persist of sheet and credentials)
   useEffect(() => {
     const savedSheetId = localStorage.getItem("connected_spreadsheet_id");
@@ -241,7 +460,9 @@ export default function App() {
     if (savedLeoPass) setLeonardoPassword(savedLeoPass);
 
     const savedLeoModel = localStorage.getItem("leonardo_model");
-    if (savedLeoModel) setLeonardoModel(savedLeoModel);
+    if (savedLeoModel) {
+      setLeonardoModel(savedLeoModel === "free-pollinations" ? "gemini-imagen" : savedLeoModel);
+    }
 
     const savedCustomModelId = localStorage.getItem("leonardo_custom_model_id");
     if (savedCustomModelId) setCustomModelId(savedCustomModelId);
@@ -560,6 +781,13 @@ Return ONLY valid JSON matching this schema:
       setVercelUrl("");
       setGoogleDriveUrl("");
       setActiveTab("tagline");
+
+      // Auto populate search on ForexCracked immediately
+      const eaKeyword = (parsedData.eaName || "").trim();
+      if (eaKeyword) {
+        setForexCrackedSearch(eaKeyword);
+        handleSearchForexCracked(eaKeyword);
+      }
     }
 
     setIsAnalyzing(false);
@@ -794,6 +1022,12 @@ Return ONLY valid JSON matching this schema:
     setCustomImagePrompt(row[4] || "");
     setActiveTab("imagePrompt"); // Auto-switch tab to highlight the Leonardo image prompt
     
+    // Auto populate and search ForexCracked for this EA
+    if (row[1]) {
+      setForexCrackedSearch(row[1]);
+      handleSearchForexCracked(row[1]);
+    }
+    
     // Smooth scroll to the workshop section so the user can see it
     setTimeout(() => {
       const workshopElement = document.getElementById("workshop-section");
@@ -868,18 +1102,17 @@ Return ONLY valid JSON matching this schema:
     }
   };
 
-  // 1. Generate Image on OpenAI DALL-E 3, Leonardo.ai, Gemini Imagen, or Free Generator
+  // 1. Generate Image on Google Gemini Imagen 3, OpenAI DALL-E 3, or Leonardo.ai
   const handleGenerateLeonardoImage = async () => {
     if (!analysisResult) return;
     setIsGeneratingImage(true);
+    setImageWorkshopError(null);
     setLeonardoStatus(
       leonardoModel === "dall-e-3"
         ? "กำลังสร้างภาพโฆษณาระดับพรีเมียมด้วย OpenAI DALL-E 3 (HD)..."
         : leonardoModel === "gemini-imagen" 
-          ? "กำลังสั่งสร้างรูปภาพด้วย Gemini Image Model..." 
-          : leonardoModel === "free-pollinations" 
-            ? "กำลังสั่งสร้างรูปภาพด้วย Free AI Generator..." 
-            : "กำลังเชื่อมต่อและส่งข้อมูลสเปคภาพไปยัง Leonardo.ai..."
+          ? "กำลังสั่งสร้างรูปภาพ 8K ด้วย Google Gemini Imagen 3 / 8K Engine..." 
+          : "กำลังเชื่อมต่อและส่งข้อมูลสเปคภาพไปยัง Leonardo.ai..."
     );
     setErrorMessage(null);
 
@@ -893,7 +1126,7 @@ Return ONLY valid JSON matching this schema:
       let p = (basePrompt || "").trim();
       if (!p) {
         const title = analysisResult?.eaName || "MetaTrader 5 Forex Expert Advisor";
-        p = `Ultra-clean commercial presentation infographic poster for '${title}', bright multi-screen glass trading workstation displaying crisp glowing green and gold EUR/USD candlestick charts, algorithmic trading telemetry, profit curve, modern fintech badges, bright studio backdrop, sharp typography, 8k resolution, photorealistic masterpiece`;
+        p = `At the very top, large glowing neon 3D metallic header text displaying "${title}". The image features a powerful, stylized holographic mascot formed from golden light and flowing digital trading data on a high-tech glowing trading platform. In the background, sleek multi-monitor trading stations with glowing green candlestick charts (EURUSD, GBPUSD, XAUUSD) and forex telemetry dashboards with ascending profit trendlines. Ultra-bright cinematic studio lighting, sharp 8k resolution, photorealistic commercial masterpiece`;
       }
       return p;
     };
@@ -902,7 +1135,8 @@ Return ONLY valid JSON matching this schema:
 
     try {
       const sanitizedKey = (leonardoPassword || "").trim();
-      if (leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && leonardoModel !== "dall-e-3" && sanitizedKey.includes("@")) {
+
+      if (leonardoModel !== "gemini-imagen" && leonardoModel !== "dall-e-3" && sanitizedKey.includes("@")) {
         throw new Error("ตรวจพบรูปแบบอีเมลในช่อง API Key: ระบบไม่รองรับการเข้าสู่ระบบ Leonardo.ai ด้วย Gmail หรือรหัสผ่านโดยตรงผ่าน API กรุณาป้อนคีย์ API Key (รหัส UUID 36 หลัก) จากแผงควบคุม Leonardo.ai");
       }
 
@@ -919,7 +1153,7 @@ Return ONLY valid JSON matching this schema:
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: finalSafePrompt,
-            clientApiKey: (leonardoModel === "free-pollinations" || leonardoModel === "gemini-imagen" || leonardoModel === "dall-e-3") ? "free" : leonardoPassword,
+            clientApiKey: (leonardoModel === "gemini-imagen" || leonardoModel === "dall-e-3") ? "free" : leonardoPassword,
             geminiApiKey: geminiApiKey.trim() || undefined,
             openaiApiKey: openaiApiKey.trim() || (sanitizedKey.startsWith("sk-") ? sanitizedKey : undefined),
             width: widthNum,
@@ -935,7 +1169,12 @@ Return ONLY valid JSON matching this schema:
         // If backend returned immediate image URL
         if (directImageUrl) {
           setGeneratedImageUrl(directImageUrl);
-          setLeonardoStatus("✨ สร้างภาพและเปลี่ยนภาพใหม่เรียบร้อยแล้ว!");
+          const usedModelNotice = initData.modelUsed?.includes("flux")
+            ? "✨ สร้างภาพหน้าปก EA คมชัดระดับ 8K สำเร็จเรียบร้อย!"
+            : initData.modelUsed?.includes("imagen")
+              ? "✨ สร้างภาพสำเร็จด้วย Google Gemini Imagen 3 เรียบร้อยแล้ว!"
+              : "✨ สร้างภาพและเปลี่ยนภาพใหม่เรียบร้อยแล้ว!";
+          setLeonardoStatus(usedModelNotice);
           setIsGeneratingImage(false);
           return;
         }
@@ -1561,20 +1800,37 @@ Return ONLY valid JSON matching this schema:
 
         {/* Left Column: Inputs and Preset Selectors (span 5) */}
         <section className="col-span-12 lg:col-span-5 flex flex-col gap-6">
+
           {/* Card: Paste strategy/code */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-slate-800 font-semibold">
-              <BookOpen className="w-5 h-5 text-indigo-500" />
-              <span>1. ใส่ข้อมูลกลยุทธ์ หรือไฟล์ EA</span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <div className="flex items-center gap-2 text-slate-800 font-semibold">
+                <BookOpen className="w-5 h-5 text-indigo-500" />
+                <span>1. ข้อมูลกลยุทธ์ หรือสเปค EA (พร้อมวิเคราะห์)</span>
+              </div>
+              {inputText && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    copyToClipboard(inputText);
+                    setForexCrackedCopied(true);
+                    setTimeout(() => setForexCrackedCopied(false), 2000);
+                  }}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>{forexCrackedCopied ? "คัดลอกแล้ว!" : "คัดลอกข้อความ"}</span>
+                </button>
+              )}
             </div>
             
             <p className="text-xs text-slate-500 leading-relaxed">
-              คุณสามารถระบุคำอธิบายระบบเทรด, ข้อมูลตัวชี้วัด (Indicators), หรือวางโค้ด MQL ของ EA ที่คุณใช้ เพื่อให้ Gemini ช่วยคัดสรรคำโปรยการตลาดที่โดนใจ และเขียนโค้ด HTML เพื่อโชว์เคสฟีเจอร์ให้ทันที
+              คุณสามารถระบุคำอธิบายระบบเทรด, ข้อมูลตัวชี้วัด (Indicators), หรือวางโค้ด MQL / ข้อมูลที่ดึงจาก ForexCracked เพื่อให้ Gemini ช่วยคัดสรรคำโปรยการตลาดที่โดนใจ และเขียนโค้ด HTML โชว์เคสฟีเจอร์ให้ทันที
             </p>
 
             <textarea
               className="w-full min-h-[140px] bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all placeholder-slate-400"
-              placeholder="วางข้อมูลสเปคอธิบาย EA, โค้ดโปรแกรมเมอร์ หรือไอเดียจุดเข้าซื้อขายได้ที่นี่..."
+              placeholder="วางข้อมูลสเปคอธิบาย EA, โค้ดโปรแกรมเมอร์ หรือไอเดียจุดเข้าซื้อขายได้ที่นี่ (หรือใช้ปุ่มดึงข้อมูลจาก ForexCracked ด้านบน)..."
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
             />
@@ -1669,30 +1925,32 @@ Return ONLY valid JSON matching this schema:
                   ) : (
                     <>
                       <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                      <span className="line-clamp-2">{geminiKeyTestStatus.message}</span>
+                      <span>{geminiKeyTestStatus.message}</span>
                     </>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Presets Grid */}
-            <div>
-              <p className="text-xs font-semibold text-slate-500 mb-2">💡 ตัวอย่างกลยุทธ์สเปค EA ยอดนิยม:</p>
-              <div className="flex flex-col gap-2">
+            {/* Presets & Analyze Button */}
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-bold text-slate-700">หรือเลือกเทมเพลตตัวอย่างกลยุทธ์ยอดนิยม:</span>
+              <div className="grid grid-cols-1 gap-2">
                 {PRESETS.map((preset, idx) => (
                   <button
                     key={idx}
+                    type="button"
                     onClick={() => setInputText(preset.description)}
-                    className="text-left text-xs bg-slate-50 hover:bg-indigo-50/60 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 p-2.5 rounded-lg transition-all cursor-pointer"
+                    className="p-2.5 text-left border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/40 transition-all group flex flex-col gap-1 cursor-pointer bg-white shadow-2xs"
                   >
-                    <p className="font-semibold text-slate-700 flex items-center gap-1">
-                      <span className="bg-slate-200 text-slate-600 rounded-md w-4 h-4 inline-flex items-center justify-center text-[10px]">
-                        {idx + 1}
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-slate-800 group-hover:text-indigo-600">
+                        {preset.name}
                       </span>
-                      {preset.name}
-                    </p>
-                    <p className="text-slate-500 line-clamp-1 mt-0.5">{preset.description}</p>
+                    </div>
+                    <span className="text-[11px] text-slate-500 line-clamp-1">
+                      {preset.description}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -1700,381 +1958,447 @@ Return ONLY valid JSON matching this schema:
 
             <button
               onClick={handleAnalyze}
-              disabled={isAnalyzing || !inputText.trim()}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-semibold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md disabled:cursor-not-allowed hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0"
+              disabled={isAnalyzing || !inputText.trim() || !geminiApiKey.trim()}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
             >
               {isAnalyzing ? (
                 <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>กำลังประมวลผลด้วย Gemini...</span>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>กำลังวิเคราะห์ด้วย Gemini AI...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-5 h-5 fill-white" />
-                  <span>วิเคราะห์และแยกข้อมูลด่วน ✦</span>
+                  <Sparkles className="w-4 h-4" />
+                  <span>วิเคราะห์และแยกข้อมูลด่วน ✨</span>
                 </>
               )}
             </button>
           </div>
 
-          {/* Card: Connect to Sheet (Active only when logged in) */}
+          {/* Card: ForexCracked.com Integration (Placed right after Analyze & Auto-Searched) */}
+          <ForexCrackedCard
+            forexCrackedCopied={forexCrackedCopied}
+            handleCopyForexCrackedUrl={handleCopyForexCrackedUrl}
+            forexCrackedUrl={forexCrackedUrl}
+            setForexCrackedUrl={setForexCrackedUrl}
+            handleFetchForexCracked={handleFetchForexCracked}
+            isFetchingForexCracked={isFetchingForexCracked}
+            forexCrackedSearch={forexCrackedSearch}
+            setForexCrackedSearch={setForexCrackedSearch}
+            handleSearchForexCracked={handleSearchForexCracked}
+            forexCrackedStatus={forexCrackedStatus}
+            setForexCrackedStatus={setForexCrackedStatus}
+            forexCrackedResults={forexCrackedResults}
+            setForexCrackedResults={setForexCrackedResults}
+            forexCrackedData={forexCrackedData}
+          />
+
+          {/* Card: Google Sheets Connection & Manager */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-            <div className="flex items-center gap-2 text-slate-800 font-semibold">
-              <Database className="w-5 h-5 text-emerald-500" />
-              <span>2. ตั้งค่าการเชื่อมต่อ Google Sheets</span>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-slate-800 font-semibold">
+                <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                <span>2. เชื่อมต่อ Google Sheets</span>
+              </div>
+              {connectedSheet && (
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-600" /> เชื่อมต่อแล้ว
+                </span>
+              )}
             </div>
 
             {needsAuth ? (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center flex flex-col gap-3 items-center">
-                <FileSpreadsheet className="w-8 h-8 text-slate-400" />
-                <div className="text-xs">
-                  <p className="font-bold text-slate-700">เข้าสู่ระบบ Google เพื่อเชื่อมต่อชีตของคุณ</p>
-                  <p className="text-slate-500 mt-1">ระบบจะส่งข้อมูลบันทึกแยกคำโปรย สรุปและโค้ดลงตารางทันทีอย่างรวดเร็ว</p>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center gap-3 text-center">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  กรุณาลงชื่อเข้าใช้ Google เพื่อสร้างไฟล์หรือเชื่อมต่อชีตสำหรับส่งออกข้อมูลโดยอัตโนมัติ
+                </p>
+                <button
+                  onClick={handleLogin}
+                  disabled={isLoggingIn}
+                  className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-semibold text-xs py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
+                >
+                  {isLoggingIn ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <User className="w-4 h-4" />
+                  )}
+                  <span>Sign in with Google เพื่อใช้งาน Sheets</span>
+                </button>
+              </div>
+            ) : connectedSheet ? (
+              <div className="flex flex-col gap-3">
+                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-emerald-950 truncate max-w-[200px]">
+                      📄 {connectedSheet.title}
+                    </span>
+                    <a
+                      href={connectedSheet.spreadsheetUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 font-semibold"
+                    >
+                      <span>เปิดชีต</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-mono truncate">
+                    ID: {connectedSheet.spreadsheetId}
+                  </p>
+                  <p className="text-[11px] text-emerald-800">
+                    แถบตารางปลายทาง: <strong className="font-semibold text-emerald-900">EA Content</strong>
+                  </p>
                 </div>
-                <div className="flex flex-wrap items-center justify-center gap-2 w-full mt-1">
+
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={handleLogin}
-                    disabled={isLoggingIn}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs py-2 px-4 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                    onClick={() => handleFetchRows()}
+                    disabled={isLoadingSheet}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                   >
-                    {isLoggingIn ? (
-                      <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Plus className="w-3.5 h-3.5" />
-                    )}
-                    <span>เชื่อมต่อบัญชี Google</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSheet ? "animate-spin" : ""}`} />
+                    <span>ซิงค์ข้อมูลล่าสุด</span>
                   </button>
-                  <a
-                    href={window.location.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-medium text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1 transition-colors shadow-xs"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>เปิดในแท็บใหม่</span>
-                  </a>
-                </div>
-                <div className="mt-1 pt-2 border-t border-slate-200 w-full">
                   <button
-                    type="button"
-                    onClick={() => {
-                      const input = prompt("กรอก Google OAuth Access Token (ya29...):");
-                      if (input && input.trim()) {
-                        setToken(input.trim());
-                        setNeedsAuth(false);
-                      }
-                    }}
-                    className="text-[11px] text-slate-500 hover:text-emerald-600 underline font-medium cursor-pointer"
+                    onClick={() => saveSheetState(null)}
+                    className="text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer"
                   >
-                    หรือป้อน OAuth Access Token โดยตรง
+                    สลับชีต
                   </button>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-                {connectedSheet ? (
-                  <div className="bg-emerald-50/80 border border-emerald-200 p-4 rounded-xl flex flex-col gap-2">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider font-semibold text-emerald-600">เชื่อมต่อตารางแล้ว ✓</p>
-                        <p className="text-sm font-bold text-slate-800 mt-0.5 line-clamp-1">{connectedSheet.title}</p>
-                      </div>
+                {/* Create New Sheet */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-700">สร้างไฟล์ Google Sheets ใหม่</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={spreadsheetTitle}
+                      onChange={(e) => setSpreadsheetTitle(e.target.value)}
+                      placeholder="ชื่อไฟล์ชีต..."
+                      className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleCreateSheet}
+                      disabled={isCreatingSheet || !spreadsheetTitle.trim()}
+                      className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-xs"
+                    >
+                      {isCreatingSheet ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Plus className="w-3.5 h-3.5" />
+                      )}
+                      <span>สร้างชีต</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-slate-400">
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                  <span className="text-[10px] uppercase font-bold">หรือ</span>
+                  <div className="flex-1 h-px bg-slate-200"></div>
+                </div>
+
+                {/* Connect Existing Sheet */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs font-bold text-slate-700">เชื่อมต่อชีตเดิมด้วย Spreadsheet ID</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={manualSheetId}
+                      onChange={(e) => setManualSheetId(e.target.value)}
+                      placeholder="วาง Spreadsheet ID..."
+                      className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={handleConnectManualSheet}
+                      disabled={isLoadingSheet || !manualSheetId.trim()}
+                      className="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-xs"
+                    >
+                      {isLoadingSheet ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <FileSpreadsheet className="w-3.5 h-3.5" />
+                      )}
+                      <span>เชื่อมต่อ</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Right Column: 3. Results & 4. Workshop (span 7) */}
+        <section className="col-span-12 lg:col-span-7 flex flex-col gap-6">
+          {/* Results Card */}
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-slate-900 text-sm">3. ผลการวิเคราะห์ & ข้อมูลพร้อมใช้ (Results)</h3>
+              </div>
+              {analysisResult && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSaveToSheet}
+                    disabled={isLoadingSheet || !connectedSheet}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-semibold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                    title={!connectedSheet ? "กรุณาเชื่อมต่อ Google Sheet ก่อน" : "บันทึกข้อมูลนี้ลง Google Sheets ทันที"}
+                  >
+                    {isLoadingSheet ? (
+                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Check className="w-3.5 h-3.5" />
+                    )}
+                    <span>บันทึกลง Sheet 📊</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {exportSuccess && (
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>บันทึกข้อมูล EA ลง Google Sheets สำเร็จเรียบร้อยแล้ว! ข้อมูลจะแสดงในตารางด้านล่าง</span>
+              </div>
+            )}
+
+            {!analysisResult && !isAnalyzing && (
+              <div className="text-center py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
+                <Sparkles className="w-10 h-10 stroke-1 text-slate-300" />
+                <p className="text-sm">กรอกข้อมูลระบบเทรดด้านซ้าย แล้วกดปุ่ม "วิเคราะห์และแยกข้อมูลด่วน" เพื่อดูผลลัพธ์ที่นี่</p>
+              </div>
+            )}
+
+            {isAnalyzing && (
+              <div className="py-12 flex flex-col items-center justify-center gap-3">
+                <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-xs text-indigo-600 font-semibold">Gemini กำลังวิเคราะห์สเปคและสร้างสรรค์คำโปรย...</p>
+              </div>
+            )}
+
+            {analysisResult && (
+              <div className="flex flex-col gap-4">
+                {/* EA Header Info */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                      ชื่อ EA ที่แนะนำ
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (analysisResult.eaName) {
+                          setForexCrackedSearch(analysisResult.eaName);
+                          handleSearchForexCracked(analysisResult.eaName);
+                          const el = document.getElementById("forexcracked-section");
+                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                        }
+                      }}
+                      className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-400/50 px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer shadow-2xs"
+                      title="ค้นหา EA นี้บน ForexCracked.com ทันที"
+                    >
+                      <Search className="w-3 h-3 text-amber-600" />
+                      <span>ค้นหาบน ForexCracked</span>
+                    </button>
+                  </div>
+                  <h4 className="text-lg font-extrabold text-slate-900">{analysisResult.eaName}</h4>
+                </div>
+
+                {/* Tab Navigation for Results */}
+                <div className="flex border-b border-slate-200 gap-2 text-xs font-semibold">
+                  <button
+                    onClick={() => setActiveTab("tagline")}
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                      activeTab === "tagline"
+                        ? "border-indigo-600 text-indigo-600 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    1. คำโปรย HTML (Tagline)
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("features")}
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                      activeTab === "features"
+                        ? "border-indigo-600 text-indigo-600 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    2. สรุปฟีเจอร์ HTML (Features)
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("preview")}
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                      activeTab === "preview"
+                        ? "border-indigo-600 text-indigo-600 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    3. การ์ด HTML (Card Preview)
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("imagePrompt")}
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                      activeTab === "imagePrompt"
+                        ? "border-indigo-600 text-indigo-600 font-bold"
+                        : "border-transparent text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    4. พรอมต์ภาพ 8K (Image Prompt)
+                  </button>
+                </div>
+
+                {/* Tab 1: Tagline */}
+                {activeTab === "tagline" && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500">ผลลัพธ์คำโปรยการตลาด (Tagline HTML):</span>
                       <button
-                        onClick={() => saveSheetState(null)}
-                        className="text-[10px] text-rose-500 hover:text-rose-700 font-semibold"
+                        onClick={() => copyToClipboard(analysisResult.tagline)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors"
                       >
-                        ยกเลิกเชื่อมต่อ
+                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? "คัดลอกแล้ว!" : "คัดลอกโค้ด HTML"}</span>
                       </button>
                     </div>
-                    <div className="text-xs flex flex-col gap-1 text-slate-500">
-                      <p className="font-mono text-[10px] bg-white border border-slate-200 px-1.5 py-0.5 rounded-md truncate max-w-full">
-                        ID: {connectedSheet.spreadsheetId}
-                      </p>
-                      <a 
-                        href={connectedSheet.spreadsheetUrl} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="text-emerald-600 hover:underline inline-flex items-center gap-1 font-semibold mt-1"
-                      >
-                        เปิดไฟล์ Google Sheet ในแท็บใหม่
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-inner">
+                      <div className="bg-slate-900 text-slate-200 p-3 font-mono text-xs overflow-x-auto">
+                        <code>{analysisResult.tagline}</code>
+                      </div>
+                      <div className="p-4 bg-slate-50 border-t border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          การแสดงผลจริง (Rendered Preview):
+                        </span>
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: analysisResult.tagline }} 
+                          className="text-sm leading-relaxed"
+                        />
+                      </div>
                     </div>
                   </div>
-                ) : (
+                )}
+
+                {/* Tab 2: Features */}
+                {activeTab === "features" && (
                   <div className="flex flex-col gap-3">
-                    {/* Method A: Create New Spreadsheet */}
-                    <div className="border border-slate-100 rounded-xl p-3.5 bg-slate-50 flex flex-col gap-2.5">
-                      <p className="text-xs font-bold text-slate-700">แนวทางที่ 1: สร้าง Google Sheet ขึ้นมาใหม่</p>
-                      <input
-                        type="text"
-                        className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
-                        value={spreadsheetTitle}
-                        onChange={(e) => setSpreadsheetTitle(e.target.value)}
-                        placeholder="ชื่อชีตใหม่ เช่น EA Database"
-                      />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500">สรุปฟีเจอร์และจุดเด่น (Features HTML):</span>
                       <button
-                        onClick={handleCreateSheet}
-                        disabled={isCreatingSheet}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-semibold text-xs py-2.5 px-4 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                        onClick={() => copyToClipboard(analysisResult.featuresSummary)}
+                        className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors"
                       >
-                        {isCreatingSheet ? (
-                          <>
-                            <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                            <span>กำลังสร้างตารางชีต...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4" />
-                            <span>สร้าง Google Sheet ใหม่ 📁</span>
-                          </>
-                        )}
+                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copied ? "คัดลอกแล้ว!" : "คัดลอกโค้ด HTML"}</span>
                       </button>
                     </div>
-
-                    {/* Method B: Connect Existing */}
-                    <div className="border border-slate-100 rounded-xl p-3.5 bg-slate-50 flex flex-col gap-2.5">
-                      <p className="text-xs font-bold text-slate-700">แนวทางที่ 2: เชื่อมต่อโดยใช้ Spreadsheet ID</p>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          className="flex-1 bg-white border border-slate-200 rounded-lg p-2 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
-                          value={manualSheetId}
-                          onChange={(e) => setManualSheetId(e.target.value)}
-                          placeholder="วาง ID ของชีตที่นี่..."
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-inner">
+                      <div className="bg-slate-900 text-slate-200 p-3 font-mono text-xs overflow-x-auto max-h-[160px]">
+                        <code>{analysisResult.featuresSummary}</code>
+                      </div>
+                      <div className="p-4 bg-slate-50 border-t border-slate-200">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                          การแสดงผลจริง (Rendered Preview):
+                        </span>
+                        <div 
+                          dangerouslySetInnerHTML={{ __html: analysisResult.featuresSummary }} 
+                          className="text-sm leading-relaxed"
                         />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 3: Card Preview */}
+                {activeTab === "preview" && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500">ตัวอย่างการ์ดนำเสนอ HTML Showcase:</span>
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={handleConnectManualSheet}
-                          disabled={isLoadingSheet || !manualSheetId.trim()}
-                          className="bg-slate-800 hover:bg-slate-900 text-white disabled:bg-slate-200 font-semibold text-xs py-2 px-3 rounded-lg flex items-center justify-center cursor-pointer transition-colors"
+                          onClick={() => copyToClipboard(analysisResult.htmlCode)}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors"
                         >
-                          {isLoadingSheet ? (
-                            <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
-                          ) : (
-                            <span>เชื่อมต่อ</span>
-                          )}
+                          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copied ? "คัดลอกแล้ว!" : "คัดลอกโค้ด"}</span>
                         </button>
                       </div>
+                    </div>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-900 p-4 shadow-inner">
+                      <div 
+                        dangerouslySetInnerHTML={{ __html: analysisResult.htmlCode }} 
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Tab 4: Image Prompt */}
+                {activeTab === "imagePrompt" && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500">พรอมต์สร้างภาพ 8K สำหรับ Gemini Image Generator:</span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => copyToClipboard(analysisResult.imagePrompt)}
+                          className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors"
+                        >
+                          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span>{copied ? "คัดลอกแล้ว!" : "คัดลอกพรอมต์"}</span>
+                        </button>
+                        <button
+                          onClick={() => handleCopyAndOpenGemini(analysisResult.imagePrompt)}
+                          className="text-xs text-white bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 font-bold flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-md shadow-xs transition-all"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>🚀 คัดลอก & เปิดเว็บ Gemini</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="bg-slate-900 text-slate-200 p-3.5 rounded-xl font-mono text-xs leading-relaxed border border-slate-800">
+                      {analysisResult.imagePrompt}
+                    </div>
+                    <div className="flex items-center justify-between bg-indigo-50 border border-indigo-100 p-2.5 rounded-lg">
+                      <span className="text-xs text-indigo-800">
+                        💡 <strong>ขั้นตอนง่ายๆ</strong>: กดปุ่ม <strong>"🚀 คัดลอก & เปิดเว็บ Gemini"</strong> เพื่อเจนภาพ 8K บนเว็บ Gemini แล้วก๊อปรูปกลับมากด <strong>Ctrl+V</strong> ใส่ระบบได้ทันที
+                      </span>
+                      <button
+                        onClick={() => {
+                          setCustomImagePrompt(analysisResult.imagePrompt);
+                          const workshopEl = document.getElementById("workshop-section");
+                          if (workshopEl) workshopEl.scrollIntoView({ behavior: "smooth" });
+                        }}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition-colors shadow-2xs shrink-0 ml-2"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>ไปที่เวิร์กช็อปภาพ</span>
+                      </button>
                     </div>
                   </div>
                 )}
               </div>
             )}
           </div>
-        </section>
 
-        {/* Right Column: Output Showcase & Sheets Sync Progress (span 7) */}
-        <section className="col-span-12 lg:col-span-7 flex flex-col gap-6">
-          
-          {/* Gemini Content Breakdown */}
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col min-h-[480px]">
-            {/* Header tab switcher */}
-            <div className="bg-slate-50 border-b border-slate-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-500 fill-indigo-100" />
-                <span className="font-bold text-slate-800 text-sm">3. ผลลัพธ์การคัดกรองจาก AI Gemini</span>
-              </div>
-              
-              {analysisResult && (
-                <div className="flex flex-wrap bg-slate-200/80 p-0.5 rounded-lg border border-slate-300 gap-0.5">
-                  <button
-                    onClick={() => setActiveTab("tagline")}
-                    className={`text-xs px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${activeTab === "tagline" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
-                  >
-                    คำโปรยโฆษณา
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("features")}
-                    className={`text-xs px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${activeTab === "features" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
-                  >
-                    สรุปฟีเจอร์ EA
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("imagePrompt")}
-                    className={`text-xs px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${activeTab === "imagePrompt" ? "bg-white text-indigo-600 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5 inline mr-1 -mt-0.5 text-pink-500 fill-pink-50" />
-                    พรอมต์รูปภาพ Leonardo
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Tab content space */}
-            <div className="p-6 flex-1 flex flex-col justify-center">
-              {!analysisResult ? (
-                <div className="text-center py-16 px-4 flex flex-col items-center gap-4">
-                  {isAnalyzing ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="relative flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin"></div>
-                        <Sparkles className="w-5 h-5 text-indigo-500 animate-pulse absolute" />
-                      </div>
-                      <p className="text-sm font-semibold text-slate-600 mt-2">กำลังออกแบบสื่อนำเสนอ & คำโปรยใน 3 วินาที...</p>
-                      <p className="text-xs text-slate-400">Gemini กำลังร่างคำโฆษณา และประกอบธีมการ์ดโชว์เคสด้วย Tailwind</p>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="bg-slate-100 p-4 rounded-full text-slate-400">
-                        <Sparkles className="w-8 h-8" />
-                      </div>
-                      <p className="text-sm font-bold text-slate-600">ยังไม่มีข้อมูลที่จะแสดงผล</p>
-                      <p className="text-xs text-slate-400 max-w-sm">
-                        กรุณากรอกไอเดียกลยุทธ์ด้านซ้ายมือแล้วกดปุ่ม "วิเคราะห์และแยกข้อมูลด่วน ✦" เพื่อให้ AI ช่วยจัดการเนื้อหาอย่างเป็นระบบ
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col gap-4 animate-fade-in">
-                  
-                  {/* Top Header: EA Name Extracted */}
-                  <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                    <div>
-                      <span className="text-[10px] bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full font-bold">ชื่อบอทที่สกัดได้</span>
-                      <h3 className="text-xl font-bold text-slate-900 mt-1">{analysisResult.eaName}</h3>
-                    </div>
-
-                    {/* Green Save to Sheet CTA */}
-                    {connectedSheet ? (
-                      <button
-                        onClick={handleSaveToSheet}
-                        disabled={isLoadingSheet}
-                        className={`font-semibold text-xs py-2.5 px-4 rounded-xl flex items-center gap-2 cursor-pointer transition-all ${exportSuccess ? "bg-emerald-500 text-white" : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-md hover:-translate-y-0.5"}`}
-                      >
-                        {isLoadingSheet ? (
-                          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : exportSuccess ? (
-                          <>
-                            <Check className="w-4 h-4" />
-                            <span>บันทึกตารางสำเร็จ!</span>
-                          </>
-                        ) : (
-                          <>
-                            <FileSpreadsheet className="w-4 h-4" />
-                            <span>ส่งข้อมูลเข้า Google Sheet 🟢</span>
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <span className="text-xs text-slate-400 font-medium italic">💡 เชื่อมต่อ Google Sheet เพื่อบันทึก</span>
-                    )}
-                  </div>
-
-                  {/* TAB 2: Marketing Tagline (HTML Code & Render) */}
-                  {activeTab === "tagline" && (
-                    <div className="flex-1 flex flex-col gap-3 py-1">
-                      <div className="flex justify-between items-center">
-                        <p className="text-xs font-bold text-slate-600">🎯 โค้ด HTML คำโปรยการตลาด (Tagline HTML Code):</p>
-                        <button
-                          onClick={() => copyToClipboard(analysisResult.tagline)}
-                          className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-md transition-colors font-semibold"
-                        >
-                          {copied ? "คัดลอกโค้ดแล้ว" : "คัดลอกโค้ด HTML"}
-                        </button>
-                      </div>
-                      
-                      {/* Raw HTML display */}
-                      <div className="bg-slate-900 rounded-lg p-3 font-mono text-[10px] text-indigo-300 overflow-y-auto max-h-[80px]">
-                        <pre className="whitespace-pre-wrap">{analysisResult.tagline}</pre>
-                      </div>
-
-                      {/* Live preview render */}
-                      <p className="text-xs font-semibold text-slate-500 mt-1">👀 ตัวอย่างการแสดงผล (Preview):</p>
-                      <div className="bg-white border border-slate-200 p-4 rounded-xl shadow-xs">
-                        <div dangerouslySetInnerHTML={{ __html: analysisResult.tagline }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB 3: Trading Features Summary (HTML Code & Render) */}
-                  {activeTab === "features" && (
-                    <div className="flex-1 flex flex-col gap-3 py-1">
-                      <div className="flex justify-between items-center">
-                        <p className="text-xs font-bold text-slate-600">📋 โค้ด HTML สรุปฟีเจอร์การเทรด (Features HTML Code):</p>
-                        <button
-                          onClick={() => copyToClipboard(analysisResult.featuresSummary)}
-                          className="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded-md transition-colors font-semibold"
-                        >
-                          {copied ? "คัดลอกโค้ดแล้ว" : "คัดลอกโค้ด HTML"}
-                        </button>
-                      </div>
-
-                      {/* Raw HTML display */}
-                      <div className="bg-slate-900 rounded-lg p-3 font-mono text-[10px] text-emerald-300 overflow-y-auto max-h-[100px]">
-                        <pre className="whitespace-pre-wrap">{analysisResult.featuresSummary}</pre>
-                      </div>
-
-                      {/* Live preview render */}
-                      <p className="text-xs font-semibold text-slate-500 mt-1">👀 ตัวอย่างการแสดงผล (Preview):</p>
-                      <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl max-h-[160px] overflow-y-auto">
-                        <div dangerouslySetInnerHTML={{ __html: analysisResult.featuresSummary }} />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* TAB 5: Leonardo.ai Image Gen Prompt */}
-                  {activeTab === "imagePrompt" && (
-                    <div className="flex-1 flex flex-col gap-3 py-2">
-                      <div className="bg-pink-50/50 border border-pink-100 p-4 rounded-xl flex items-start gap-3">
-                        <div className="bg-pink-100 p-2 rounded-lg text-pink-600 shrink-0">
-                          <Sparkles className="w-4 h-4 fill-pink-100" />
-                        </div>
-                        <div className="text-xs">
-                          <p className="font-bold text-pink-800">พรอมต์สำหรับ Leonardo.ai 🎨</p>
-                          <p className="text-pink-700/90 mt-0.5">
-                            นี่คือพรอมต์ภาษาอังกฤษที่ AI ดีไซน์ขึ้นพิเศษเพื่อสื่อความหมายของ EA นี้ คุณสามารถคัดลอกไปวางใน Leonardo.ai เพื่อสร้างรูปภาพประกอบที่สวยงามได้ทันที และข้อมูลนี้จะถูกส่งไปยังคอลัมน์ที่ 6 ใน Google Sheets ด้วย!
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <p className="text-xs font-bold text-slate-600">✨ Leonardo.ai Image Prompt (English):</p>
-                        <button
-                          onClick={() => copyToClipboard(analysisResult.imagePrompt)}
-                          className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
-                        >
-                          {copied ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span className="text-emerald-600 font-bold">คัดลอกแล้ว</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>คัดลอกพรอมต์</span>
-                            </>
-                          )}
-                        </button>
-                      </div>
-
-                      <div className="flex-1 bg-slate-900 rounded-xl p-4 font-mono text-[11px] text-pink-300 overflow-y-auto max-h-[180px]">
-                        <pre className="whitespace-pre-wrap">{analysisResult.imagePrompt}</pre>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* All-in-One Publishing Workshop */}
+          {/* Workshop Section */}
           {analysisResult && (
-            <div id="workshop-section" className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden flex flex-col p-6 gap-6">
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <CloudLightning className="w-5 h-5 text-indigo-600 animate-pulse" />
-                  <span>⚡ บอร์ดเวิร์กชอปงานเผยแพร่ EA ครบวงจร (All-in-One Workshop)</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  สร้างภาพประกอบด้วย AI, ดึงลิงก์แชร์ดาวน์โหลดตัวโปรแกรมจาก Google Drive และอัปโหลดฝากไฟล์ภาพถาวรลง Vercel Blobs เพื่อบันทึกเข้า Sheets ทันที
-                </p>
+            <div id="workshop-section" className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-pink-600" />
+                  <div>
+                    <h3 className="font-bold text-slate-900 text-sm">4. เวิร์กช็อปเตรียมมีเดีย & ไฟล์ดาวน์โหลด (Content Workshop)</h3>
+                    <p className="text-[11px] text-slate-400">ส่ง Prompt ไปเจนที่เว็บ Gemini แล้วดึงรูปกลับมารวมกับลิงก์ Drive และส่งออก Google Sheets</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* 3 Interactive Tool Panels */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 
-                {/* Panel 1: Image Generator & Instant Pro Gallery */}
+                {/* Panel 1: Dedicated Gemini Web Image Hub */}
                 <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3 justify-between">
                   <div className="flex flex-col gap-2.5">
                     <div className="flex items-center justify-between">
@@ -2082,12 +2406,24 @@ Return ONLY valid JSON matching this schema:
                         <div className="bg-pink-100 text-pink-600 p-1.5 rounded-lg">
                           <ImageIcon className="w-4 h-4" />
                         </div>
-                        <span>1. รูปภาพหน้าปก EA (8K Visuals)</span>
+                        <span>1. รูปภาพหน้าปก EA (Gemini 8K)</span>
                       </div>
                     </div>
 
-                    {/* Mode switch tabs */}
-                    <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-xs font-semibold">
+                    {/* Tab Switcher: Gemini Web Bridge vs Instant Gallery */}
+                    <div className="flex bg-slate-200/70 p-1 rounded-lg text-xs font-semibold">
+                      <button
+                        type="button"
+                        onClick={() => setImageWorkshopTab("gemini-web")}
+                        className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                          imageWorkshopTab === "gemini-web"
+                            ? "bg-white text-indigo-600 shadow-xs font-bold"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>🚀 เจนบนเว็บ Gemini (แนะนำ)</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => setImageWorkshopTab("instant")}
@@ -2097,20 +2433,8 @@ Return ONLY valid JSON matching this schema:
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
-                        <Layers className="w-3.5 h-3.5 text-pink-500" />
-                        <span>⚡ คลังภาพ EA 8K ทันที</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImageWorkshopTab("ai")}
-                        className={`flex-1 py-1.5 px-2 rounded-md transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                          imageWorkshopTab === "ai"
-                            ? "bg-white text-indigo-600 shadow-xs font-bold"
-                            : "text-slate-600 hover:text-slate-900"
-                        }`}
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>🎨 สั่งเจนภาพ AI สด</span>
+                        <ImageIcon className="w-3.5 h-3.5 text-pink-500" />
+                        <span>⚡ คลังภาพสำเร็จรูป</span>
                       </button>
                     </div>
 
@@ -2118,7 +2442,7 @@ Return ONLY valid JSON matching this schema:
                       /* Instant 8K Trading Gallery */
                       <div className="flex flex-col gap-2">
                         <p className="text-[11px] text-slate-500 leading-relaxed">
-                          เลือกภาพกราฟิก EA ระดับมืออาชีพ 8K คมชัดระดับสตูดิโอ คลิกเลือกเพื่อนำไปใช้และฝากไฟล์ได้ทันที:
+                          เลือกภาพกราฟิก EA ระดับมืออาชีพ 8K คมชัดระดับสตูดิโอ คลิกเลือกเพื่อนำไปใช้ได้ทันที:
                         </p>
                         <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-0.5">
                           {INSTANT_PRO_TRADING_GALLERY.map((item) => {
@@ -2128,6 +2452,8 @@ Return ONLY valid JSON matching this schema:
                                 key={item.id}
                                 onClick={() => {
                                   setGeneratedImageUrl(item.url);
+                                  setLocalPreviewUrl(item.url);
+                                  setLocalFileBase64(null);
                                   setLeonardoStatus(`เลือกภาพ: ${item.title} สำเร็จ!`);
                                 }}
                                 className={`group relative rounded-lg overflow-hidden border cursor-pointer transition-all ${
@@ -2163,178 +2489,15 @@ Return ONLY valid JSON matching this schema:
                         </div>
                       </div>
                     ) : (
-                      /* Custom AI Generator */
-                      <div className="flex flex-col gap-2">
-                        <p className="text-[11px] text-slate-500 leading-relaxed">
-                          สั่งสร้างภาพเฉพาะตัวด้วย <strong>Google Gemini Imagen 3</strong> หรือ <strong>Free AI Generator (Flux)</strong>:
-                        </p>
-
-                        <div className="flex flex-col gap-1 mt-0.5">
-                          <label className="text-[10px] font-bold text-slate-500">
-                            โมเดล AI ที่ใช้เจนภาพ (AI Model)
-                          </label>
-                          <select
-                            value={leonardoModel}
-                            onChange={(e) => {
-                              setLeonardoModel(e.target.value);
-                              localStorage.setItem("leonardo_model", e.target.value);
-                            }}
-                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-medium"
-                          >
-                            <option value="dall-e-3">👑 OpenAI DALL-E 3 (สร้างโปสเตอร์ & Infographic แบบภาพ NEXUS - แนะนำสูงสุด)</option>
-                            <option value="gemini-imagen">✨ Google Gemini Imagen 3 (ใช้คีย์ Gemini ด้านบน)</option>
-                            <option value="free-pollinations">✨ Free AI Generator (ฟรี ไม่ต้องใช้คีย์)</option>
-                            <option value="6bef9f1b-71cb-40e7-96a2-21e14026187e">Leonardo Phoenix (ลายเส้นคมชัด สะกดคำแม่น)</option>
-                            <option value="5c232a9e-9040-4777-9f40-7e15c54047f0">Leonardo Vision XL (ภาพถ่ายเสมือนจริง 3D / Realistic)</option>
-                            <option value="e1a32a61-3813-4907-94d8-7e39f37c4d37">Leonardo Diffusion XL (ภาพวาด งานอาร์ต แฟนตาซี)</option>
-                            <option value="a72dfd34-4a4a-4ab7-b8f4-6338fb50cf00">AlbedoBase XL (3D Render, เวกเตอร์, อนิเมะ)</option>
-                            <option value="1e60fcdb-a3a6-4bc0-b78d-177303d09a54">Stable Diffusion XL 1.0 (สแตนดาร์ด SDXL)</option>
-                            <option value="custom">Custom Model ID (ระบุรหัสด้วยตนเอง)</option>
-                          </select>
-                        </div>
-
-                        {/* OpenAI DALL-E 3 API Key Card */}
-                        {leonardoModel === "dall-e-3" && (
-                          <div className="flex flex-col gap-1.5 mt-1 border border-emerald-200 p-2.5 rounded-lg bg-emerald-50/40">
-                            <div className="flex items-center justify-between">
-                              <label className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
-                                <Key className="w-3.5 h-3.5 text-emerald-600" /> คีย์ OpenAI API Key (DALL-E 3)
-                              </label>
-                              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                                HD Quality & Infographic
-                              </span>
-                            </div>
-                            <input
-                              type="password"
-                              value={openaiApiKey}
-                              onChange={(e) => handleSaveOpenAIKey(e.target.value)}
-                              placeholder="วาง OpenAI API Key (รูปแบบ sk-proj-... หรือ sk-...)"
-                              className="w-full text-xs bg-white border border-emerald-300 rounded-lg p-2 focus:ring-1 focus:ring-emerald-500 focus:outline-none font-mono"
-                            />
-                            <div className="flex flex-col gap-0.5 text-[9.5px] text-slate-600">
-                              <span>
-                                💡 รับหรือสร้าง API Key ได้ที่{" "}
-                                <a
-                                  href="https://platform.openai.com/api-keys"
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="underline font-semibold text-emerald-700 hover:text-emerald-800"
-                                >
-                                  platform.openai.com/api-keys
-                                </a>
-                              </span>
-                              <span className="text-emerald-700 font-medium">
-                                ✨ DALL-E 3 เป็นโมเดลเดียวที่สามารถสะกดชื่อ EA, แสดงกราฟแท่งเทียน, และทำเลย์เอาต์ Infographic สวยเหมือนภาพตัวอย่าง NEXUS
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Leonardo.ai API Key Card */}
-                        {leonardoModel !== "free-pollinations" && leonardoModel !== "gemini-imagen" && leonardoModel !== "dall-e-3" && (
-                          <div className="flex flex-col gap-1 mt-1 border border-pink-100 p-2.5 rounded-lg bg-pink-50/30">
-                            <label className="text-[10px] font-bold text-pink-700 flex items-center gap-1">
-                              <Key className="w-3 h-3 text-pink-500" /> คีย์ API ของ Leonardo.ai
-                            </label>
-                            <input
-                              type="password"
-                              value={leonardoPassword}
-                              onChange={(e) => {
-                                setLeonardoPassword(e.target.value);
-                                localStorage.setItem("leonardo_password", e.target.value);
-                              }}
-                              placeholder="วาง API Key (รูปแบบ UUID เช่น 9f677511-xxxx-...)"
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-mono"
-                            />
-                            {leonardoPassword.trim().includes("@") && (
-                              <span className="text-[10px] text-pink-600 font-semibold block mt-1 leading-normal">
-                                ⚠️ ตรวจพบอีเมล: การใช้ API จะไม่รองรับ Gmail/รหัสผ่านเข้าสู่ระบบโดยตรง โปรดใช้ Leonardo API Key ในรูปแบบรหัส UUID (36 ตัวอักษร)
-                              </span>
-                            )}
-                            <span className="text-[9px] text-slate-500 mt-1 block">
-                              💡 สมัครและรับคีย์ฟรีที่ <a href="https://app.leonardo.ai/" target="_blank" rel="noreferrer" className="underline font-semibold text-pink-600 hover:text-pink-700">app.leonardo.ai</a> เมนู API Access
+                      /* Gemini Web Bridge Workflow */
+                      <div className="flex flex-col gap-2.5">
+                        
+                        {/* Step A: Copy & Open Gemini */}
+                        <div className="flex flex-col gap-1.5 bg-indigo-50/70 border border-indigo-200 p-2.5 rounded-lg">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-indigo-900 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-indigo-600" /> ขั้นตอนที่ 1: ส่งคำสั่ง Prompt ไปยัง Gemini
                             </span>
-                          </div>
-                        )}
-
-                        {leonardoModel === "custom" && (
-                          <div className="flex flex-col gap-1 mt-1">
-                            <label className="text-[10px] font-bold text-slate-500">
-                              รหัสโมเดลแบบกำหนดเอง (Custom Model ID)
-                            </label>
-                            <input
-                              type="text"
-                              value={customModelId}
-                              onChange={(e) => {
-                                setCustomModelId(e.target.value);
-                                localStorage.setItem("leonardo_custom_model_id", e.target.value);
-                              }}
-                              placeholder="ระบุรหัสโมเดล เช่น b2449217-..."
-                              className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none font-mono"
-                            />
-                          </div>
-                        )}
-
-                        <div className="flex flex-col gap-1 mt-1">
-                          <label className="text-[10px] font-bold text-slate-500">
-                            ขนาดภาพ / สัดส่วน (Dimensions)
-                          </label>
-                          <select
-                            value={leonardoDimension}
-                            onChange={(e) => {
-                              setLeonardoDimension(e.target.value);
-                              localStorage.setItem("leonardo_dimension", e.target.value);
-                            }}
-                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-pink-500 focus:outline-none"
-                          >
-                            <option value="1024x1024">1:1 Square (1024x1024) - แนะนำที่สุด</option>
-                            <option value="1024x576">16:9 Wide (1024x576) - เหมาะสำหรับแบนเนอร์กว้าง</option>
-                            <option value="1024x768">4:3 Standard (1024x768) - มิติคลาสสิก</option>
-                            <option value="768x1024">3:4 Portrait (768x1024) - สัดส่วนแนวตั้ง</option>
-                            <option value="512x512">1:1 Small (512x512) - เจนเนอเรตเร็ว/ใช้เครดิตน้อย</option>
-                          </select>
-                        </div>
-
-                        {/* Style presets selector */}
-                        <div className="flex flex-col gap-1.5 mt-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-600 flex items-center gap-1">
-                              <Wand2 className="w-3 h-3 text-pink-500" /> เลือกสไตล์ภาพกราฟิก EA
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (analysisResult?.imagePrompt) {
-                                  setCustomImagePrompt(analysisResult.imagePrompt);
-                                } else if (analysisResult?.eaName) {
-                                  setCustomImagePrompt(`A highly detailed, cinematic commercial presentation poster of a sleek modern AI trading robot and MT5 workstation. At the very top, large glowing vibrant 3D neon header text displaying '${analysisResult.eaName}'. Center shows floating holographic displays with glowing candlestick charts, trend statistics, EURUSD GBPUSD indicators, bright vivid lighting, 8k resolution, masterpiece`);
-                                }
-                              }}
-                              className="text-[9px] text-pink-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
-                            >
-                              <Sparkles className="w-2.5 h-2.5" /> ค่าเริ่มต้น AI
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            {IMAGE_STYLE_PRESETS.map((preset) => (
-                              <button
-                                key={preset.id}
-                                type="button"
-                                onClick={() => {
-                                  const eaTitle = analysisResult?.eaName || "Forex EA Trading Bot";
-                                  setCustomImagePrompt(`A premium commercial presentation poster visual for '${eaTitle}'. ${preset.promptSuffix.replace("the exact EA name", `'${eaTitle}'`)}`);
-                                }}
-                                className="text-[10px] font-semibold text-slate-700 bg-white hover:bg-pink-50 hover:text-pink-700 hover:border-pink-300 border border-slate-200 rounded-lg p-1.5 text-left transition-all flex items-center gap-1 shadow-xs cursor-pointer"
-                              >
-                                <span>{preset.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col gap-1 mt-1">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[10px] font-bold text-slate-500">Prompt เจนภาพโฆษณา</label>
                             <button
                               type="button"
                               onClick={() => {
@@ -2343,99 +2506,143 @@ Return ONLY valid JSON matching this schema:
                                   setCustomImagePrompt(`${cur}, commercial presentation infographic poster, multi-screen glass workstation, ultra-crisp glowing green and gold EUR/USD candlestick charts, algorithmic trading indicators, bright clean studio backdrop, sharp typography, 8k resolution, photorealistic masterpiece`);
                                 }
                               }}
-                              className="text-[9px] text-indigo-600 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
+                              className="text-[9px] text-indigo-700 font-semibold hover:underline flex items-center gap-0.5 cursor-pointer"
                             >
-                              <Sparkles className="w-2.5 h-2.5" /> บูสต์ความคมชัด 8K
+                              <Wand2 className="w-2.5 h-2.5" /> บูสต์ 8K
                             </button>
                           </div>
+
                           <textarea
-                            value={customImagePrompt}
+                            value={customImagePrompt || analysisResult?.imagePrompt || ""}
                             onChange={(e) => setCustomImagePrompt(e.target.value)}
-                            placeholder="ระบุพรอมต์ภาษาอังกฤษเพื่อเจนภาพ..."
-                            className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 min-h-[70px] focus:ring-1 focus:ring-pink-500 focus:outline-none placeholder-slate-400 font-medium"
+                            placeholder="ระบุพรอมต์ภาษาอังกฤษเพื่อส่งไปยัง Gemini..."
+                            className="w-full text-[11px] bg-white border border-indigo-200 rounded-md p-2 min-h-[55px] focus:ring-1 focus:ring-indigo-500 focus:outline-none placeholder-slate-400 font-medium"
                           />
+
+                          <button
+                            type="button"
+                            onClick={() => handleCopyAndOpenGemini(customImagePrompt || analysisResult?.imagePrompt)}
+                            className="w-full bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>🚀 1-Click คัดลอก & เปิดเว็บ Gemini.com</span>
+                          </button>
                         </div>
 
-                        <button
-                          onClick={handleGenerateLeonardoImage}
-                          disabled={
-                            isGeneratingImage ||
-                            (leonardoModel === "dall-e-3" ? !openaiApiKey.trim() :
-                             leonardoModel === "gemini-imagen" ? !geminiApiKey.trim() :
-                             leonardoModel === "free-pollinations" ? false :
-                             !leonardoPassword.trim())
-                          }
-                          className="w-full bg-pink-600 hover:bg-pink-700 disabled:bg-slate-300 text-white font-bold text-xs py-2.5 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:cursor-not-allowed shadow-sm"
-                        >
-                          {isGeneratingImage ? (
-                            <>
-                              <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
-                              <span className="text-[10px]">กำลังประมวลผล...</span>
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-3.5 h-3.5" />
-                              <span>สร้างภาพ AI ทันที ✨</span>
-                            </>
-                          )}
-                        </button>
+                        {/* Step B: Paste or Drop Image Back into App */}
+                        <div className="flex flex-col gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
+                            <Upload className="w-3 h-3 text-pink-600" /> ขั้นตอนที่ 2: นำรูปจาก Gemini กลับมาใส่ในระบบ
+                          </span>
+                          
+                          {/* Dropzone & Paste Box */}
+                          <div
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              setIsDraggingOver(true);
+                            }}
+                            onDragLeave={() => setIsDraggingOver(false)}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              setIsDraggingOver(false);
+                              const file = e.dataTransfer.files?.[0];
+                              if (file) handleLoadImageFile(file);
+                            }}
+                            className={`border-2 border-dashed rounded-xl p-3 text-center transition-all cursor-pointer relative ${
+                              isDraggingOver
+                                ? "border-pink-500 bg-pink-50/50 scale-[1.01]"
+                                : "border-slate-300 hover:border-indigo-400 bg-white hover:bg-indigo-50/20"
+                            }`}
+                          >
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleLocalFileChange}
+                              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                              title="คลิกเพื่อเลือกไฟล์รูปภาพ หรือลากรูปภาพมาวาง"
+                            />
+                            <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
+                              <div className="bg-pink-50 text-pink-600 p-1.5 rounded-full">
+                                <Upload className="w-4 h-4" />
+                              </div>
+                              <p className="text-[11px] font-bold text-slate-800">
+                                วางรูปภาพทันที (กด <kbd className="bg-slate-100 text-slate-800 px-1 py-0.5 rounded border border-slate-300 text-[9px]">Ctrl+V</kbd>)
+                              </p>
+                              <p className="text-[9.5px] text-slate-500 leading-tight">
+                                หรือลากไฟล์ภาพมาวาง / คลิกเลือกรูปภาพจากเครื่อง
+                              </p>
+                            </div>
+                          </div>
 
-                        {leonardoModel === "dall-e-3" && !openaiApiKey.trim() && (
-                          <p className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 p-1.5 rounded text-center">
-                            💡 กรุณาวาง <strong>OpenAI API Key</strong> ด้านบน หรือเลือก <strong>Free AI Generator</strong> เพื่อสร้างภาพทันที
-                          </p>
-                        )}
+                          {/* Alternative: Image URL Input */}
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              value={imageUrlInput}
+                              onChange={(e) => setImageUrlInput(e.target.value)}
+                              placeholder="หรือวางลิงก์รูปภาพ (Image URL)..."
+                              className="flex-1 text-[10px] bg-white border border-slate-200 rounded-lg px-2 py-1 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (imageUrlInput.trim()) {
+                                  setGeneratedImageUrl(imageUrlInput.trim());
+                                  setLocalPreviewUrl(imageUrlInput.trim());
+                                  setLocalFileBase64(null);
+                                  setLeonardoStatus("✅ นำเข้ารูปภาพจากลิงก์สำเร็จ!");
+                                  setImageUrlInput("");
+                                }
+                              }}
+                              className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg cursor-pointer shrink-0"
+                            >
+                              ตกลง
+                            </button>
+                          </div>
+                        </div>
+
                       </div>
                     )}
                   </div>
 
+                  {/* Image Preview & Status */}
                   <div className="mt-2 flex flex-col gap-2">
                     {imageWorkshopError && (
                       <div className="bg-rose-50 border border-rose-200 rounded-lg p-2 flex items-start gap-1.5 text-[11px] text-rose-700 animate-fade-in">
                         <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                         <div className="flex-1">
-                          <p className="font-semibold text-rose-800">สร้างภาพไม่สำเร็จ:</p>
+                          <p className="font-semibold text-rose-800">เกิดข้อผิดพลาด:</p>
                           <p>{imageWorkshopError}</p>
-                          <p className="mt-1 text-[10px] text-slate-500">
-                            💡 คำแนะนำ: หาก OpenAI โควตาหมด สามารถเลือกโมเดล <strong>⚡ Free AI Generator</strong> หรือ <strong>✨ Google Gemini</strong> แทนได้ทันที
-                          </p>
                         </div>
                       </div>
                     )}
 
-                    {generatedImageUrl && (
-                      <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-950 flex flex-col items-center p-2.5 gap-2 shadow-inner">
+                    {(generatedImageUrl || localPreviewUrl) && (
+                      <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-950 flex flex-col items-center p-2.5 gap-2 shadow-inner animate-fade-in">
                         <img 
-                          src={generatedImageUrl} 
-                          alt="AI Generated" 
+                          src={generatedImageUrl || localPreviewUrl || ""} 
+                          alt="EA Graphic Preview" 
                           className="w-full h-auto max-h-[140px] object-contain rounded-md shadow-md"
                           referrerPolicy="no-referrer"
                         />
                         <div className="w-full flex items-center justify-between pt-1 border-t border-slate-800 text-[10px]">
                           <a 
-                            href={generatedImageUrl} 
+                            href={generatedImageUrl || localPreviewUrl || ""} 
                             target="_blank" 
                             rel="noreferrer" 
                             className="text-pink-400 hover:underline font-bold inline-flex items-center gap-1"
                           >
                             เปิดภาพเต็ม <ExternalLink className="w-2.5 h-2.5" />
                           </a>
-                          {imageWorkshopTab === "ai" && (
-                            <button
-                              type="button"
-                              onClick={handleGenerateLeonardoImage}
-                              disabled={isGeneratingImage}
-                              className="text-emerald-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
-                            >
-                              <Dices className="w-3 h-3" /> สุ่มรูปใหม่ (Reroll)
-                            </button>
-                          )}
+                          <span className="text-[9px] text-emerald-400 font-semibold flex items-center gap-1">
+                            <Check className="w-2.5 h-2.5" /> พร้อมบันทึกลงชีต
+                          </span>
                         </div>
                       </div>
                     )}
 
                     {leonardoStatus && (
-                      <p className="text-[10px] text-pink-600 font-semibold text-center animate-pulse">{leonardoStatus}</p>
+                      <p className="text-[10px] text-pink-600 font-semibold text-center">{leonardoStatus}</p>
                     )}
                   </div>
                 </div>
