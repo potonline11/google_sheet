@@ -20,7 +20,9 @@ import {
   Layers,
   CheckCircle2,
   HelpCircle,
-  Eye
+  Eye,
+  Minimize2,
+  FolderUp
 } from "lucide-react";
 import { GoogleSheetInfo } from "../types";
 
@@ -172,6 +174,16 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
   // Open Bilibili.tv
   const handleOpenBilibili = () => {
     window.open("https://www.bilibili.tv/", "_blank", "noopener,noreferrer");
+  };
+
+  // Open Altools.ai Compress Video (https://altools.ai/th/compress-video)
+  const handleOpenAltoolsCompress = () => {
+    window.open("https://altools.ai/th/compress-video", "_blank", "noopener,noreferrer");
+  };
+
+  // Open Google Drive in new tab
+  const handleOpenGoogleDrive = () => {
+    window.open("https://drive.google.com/drive/my-drive", "_blank", "noopener,noreferrer");
   };
 
   // List MP4 files from user's Google Drive
@@ -409,14 +421,14 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
-                  ระบบแปลงหนัง Bilibili ➔ MP4 ➔ Google Drive ➔ iframe Google Sheets
+                  ระบบแปลงหนัง Bilibili ➔ MP4 ➔ บีบอัด Altools ➔ Drive ➔ iframe Google Sheets
                 </h3>
                 <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[11px] font-bold px-2 py-0.5 rounded-full">
                   potnuengshop.com
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-1">
-                นำลิงก์หนังจาก <strong className="text-sky-400">bilibili.tv</strong> แปลงเป็น MP4 ใน <strong className="text-emerald-400">snapwc.com</strong> เก็บใน <strong className="text-amber-400">Google Drive ({user?.email || "pnmall4u@gmail.com"})</strong> และสร้าง <strong className="text-indigo-400">iframe</strong> ลง Google Sheets เพื่อแสดงผลในเว็บดูหนัง
+                แปลง Bilibili เป็น MP4 (<strong className="text-emerald-400">snapwc.com</strong>) ➔ ปรับขนาดบีบอัดไฟล์ (<strong className="text-pink-400">altools.ai</strong>) ➔ เก็บใน <strong className="text-amber-400">Google Drive ({user?.email || "pnmall4u@gmail.com"})</strong> ➔ สร้าง <strong className="text-indigo-400">iframe</strong> ลง Google Sheets เพื่อแสดงผลในเว็บดูหนัง
               </p>
             </div>
           </div>
@@ -495,11 +507,75 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
             </div>
           </div>
 
-          {/* Step 2: Google Drive MP4 Storage & Permission */}
+          {/* Step 2: Compress & Resize Video at Altools.ai */}
+          <div className="bg-gradient-to-br from-pink-50/70 via-slate-50 to-purple-50/50 border border-pink-200/80 rounded-xl p-5 relative overflow-hidden">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-pink-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">2</span>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  ปรับขนาดและบีบอัดวิดีโอ MP4 ที่ Altools.ai
+                  <span className="text-[10px] font-bold text-pink-700 bg-pink-100 px-2 py-0.5 rounded-full border border-pink-200">
+                    แนะนำให้ทำ ⭐
+                  </span>
+                </h4>
+              </div>
+              <span className="text-[11px] text-pink-700 font-semibold bg-pink-100/70 px-2.5 py-0.5 rounded-md border border-pink-200 hidden sm:inline">
+                แก้ปัญหาวิดีโอใหญ่เกิน 100MB
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs text-slate-700 leading-relaxed">
+                นำไฟล์ MP4 ที่ได้ไปปรับขนาดและบีบอัดที่ <strong>altools.ai/th/compress-video</strong> เพื่อลดขนาดไฟล์ให้เหลือต่ำกว่า <strong>100MB</strong> ซึ่งจะทำให้:
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="bg-white/80 border border-pink-100 rounded-lg p-2.5 flex items-start gap-2">
+                  <span className="text-emerald-600 font-bold text-sm">✓</span>
+                  <div>
+                    <strong className="text-slate-800 text-[11px]">ไม่ติดหน้าเตือนสแกนไวรัส</strong>
+                    <p className="text-[10px] text-slate-500">Google Drive จะเปิดเล่นสตรีมมิ่งทันที ไม่บังคับดาวน์โหลด</p>
+                  </div>
+                </div>
+
+                <div className="bg-white/80 border border-pink-100 rounded-lg p-2.5 flex items-start gap-2">
+                  <span className="text-emerald-600 font-bold text-sm">✓</span>
+                  <div>
+                    <strong className="text-slate-800 text-[11px]">ประมวลผลเร็วใน 1 นาที</strong>
+                    <p className="text-[10px] text-slate-500">ผู้เข้าชมบน potnuengshop.com โหลดดูได้ลื่นไหล ไม่กระตุก</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleOpenAltoolsCompress}
+                  className="inline-flex items-center gap-2 bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-colors shadow-xs cursor-pointer"
+                >
+                  <Minimize2 className="w-4 h-4" />
+                  <span>🗜️ เปิด altools.ai บีบอัดวิดีโอ (compress-video)</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenGoogleDrive}
+                  className="inline-flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-colors shadow-xs cursor-pointer"
+                >
+                  <FolderUp className="w-4 h-4" />
+                  <span>📁 เปิด Google Drive อัปโหลดไฟล์ MP4</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3: Google Drive MP4 Storage & Permission */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
             <div className="flex items-center justify-between gap-2 mb-3">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">2</span>
+                <span className="w-6 h-6 rounded-full bg-amber-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">3</span>
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   เลือกไฟล์ MP4 จาก Google Drive
                   <span className="text-[11px] font-normal text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md border border-amber-200">
@@ -521,9 +597,14 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  วางลิงก์ไฟล์ Google Drive MP4 หรือ File ID:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    วางลิงก์ไฟล์ Google Drive MP4 หรือ File ID:
+                  </label>
+                  <span className="text-[11px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    💡 ดูวิธีหา File ID ด้านล่าง
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <input
                     type="text"
@@ -546,6 +627,19 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
                   )}
                 </div>
 
+                {/* Warning if user pasted a Google Spreadsheet link instead of MP4 file */}
+                {driveMp4Input.includes("/spreadsheets/d/") && (
+                  <div className="mt-2 p-2.5 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block text-amber-950 font-bold">⚠️ ลิงก์ที่วางอยู่คือ Google Sheets (ตารางข้อมูล) ไม่ใช่ไฟล์วิดีโอ MP4</strong>
+                      <p className="mt-0.5 text-[11px] text-amber-800">
+                        สำหรับช่องนี้ ต้องเป็น <strong>ไฟล์วิดีโอ MP4</strong> ที่อัปโหลดไว้ใน Google Drive เพื่อนำมาทำเครื่องเล่นหนัง (เช่น ลิงก์ที่ขึ้นต้นด้วย <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-amber-950">drive.google.com/file/d/.../view</code>)
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {extractedFileId && (
                   <div className="mt-2 flex items-center justify-between text-[11px] bg-slate-100 p-2 rounded-lg border border-slate-200">
                     <span className="text-slate-600">
@@ -560,6 +654,25 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* How-to Guide for Google Drive File ID */}
+                <div className="mt-2.5 bg-blue-50/70 border border-blue-200 rounded-lg p-3 text-slate-700 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-blue-900 text-[11px]">
+                    <HelpCircle className="w-3.5 h-3.5 text-blue-600" />
+                    <span>วิธีเช็คและคัดลอกลิงก์ไฟล์วิดีโอ MP4 ใน Google Drive:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-700 pl-1 leading-relaxed">
+                    <li>เปิด <strong>Google Drive</strong> (drive.google.com) แล้วไปที่ไฟล์วิดีโอ <span className="font-semibold text-indigo-700">.mp4</span> ที่อัปโหลดไว้</li>
+                    <li><strong>คลิกขวาที่ไฟล์วิดีโอ</strong> ➔ เลือก <strong>แชร์ (Share)</strong> ➔ <strong>คัดลอกลิงก์ (Copy link)</strong></li>
+                    <li>
+                      นำลิงก์มาวางในช่องนี้ ลิงก์จะมีรูปแบบ: <br/>
+                      <code className="bg-white px-1.5 py-0.5 rounded border border-blue-200 text-indigo-700 font-mono text-[10px] break-all">
+                        https://drive.google.com/file/d/<strong className="bg-amber-200 text-amber-950 px-1 rounded">1A2B3C4D5E6F7G8...</strong>/view
+                      </code>
+                    </li>
+                    <li>ตัวอักษรภาษาอังกฤษผสมตัวเลขตรงกลาง (แถบสีเหลือง) คือ <strong>File ID</strong> ระบบจะดึงออกมาแปลงเป็น iframe ให้อัตโนมัติ!</li>
+                  </ol>
+                </div>
               </div>
 
               {/* Quick Drive Video Picker Dropdown/List */}
@@ -617,10 +730,10 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
             </div>
           </div>
 
-          {/* Step 3: Movie Information & Category */}
+          {/* Step 4: Movie Information & Category */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
             <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">3</span>
+              <span className="w-6 h-6 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">4</span>
               <h4 className="text-sm font-bold text-slate-900">
                 ข้อมูลภาพยนตร์และหมวดหมู่เว็บ potnuengshop.com
               </h4>

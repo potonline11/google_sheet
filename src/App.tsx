@@ -1818,7 +1818,7 @@ Return ONLY valid JSON matching this schema:
               }`}
             >
               <Film className="w-4 h-4 text-amber-400" />
-              <span>🎬 แปลงหนัง Bilibili ➔ MP4 ➔ Drive ➔ iframe (potnuengshop.com)</span>
+              <span>🎬 แปลงหนัง Bilibili ➔ MP4 ➔ บีบอัด Altools ➔ Drive ➔ iframe (potnuengshop.com)</span>
               <span className="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-extrabold border border-amber-500/30">
                 พร้อมใช้งาน
               </span>
