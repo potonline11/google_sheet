@@ -30,12 +30,16 @@ import {
   EyeOff,
   Wand2,
   Dices,
-  Layers
+  Layers,
+  Film,
+  Tv,
+  Video
 } from "lucide-react";
 import { initAuth, googleSignIn, logout, getAccessToken } from "./firebase";
 import { User as FirebaseUser } from "firebase/auth";
 import { EAContent, GoogleSheetInfo } from "./types";
 import { ForexCrackedCard } from "./components/ForexCrackedCard";
+import { MovieBilibiliEmbedder } from "./components/MovieBilibiliEmbedder";
 
 const IMAGE_STYLE_PRESETS = [
   {
@@ -162,6 +166,9 @@ export default function App() {
   const [token, setToken] = useState<string | null>(null);
   const [needsAuth, setNeedsAuth] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Mode navigation: movies vs ea vs sheets
+  const [appActiveMode, setAppActiveMode] = useState<"movies" | "ea" | "sheets">("movies");
 
   // App functional states
   const [inputText, setInputText] = useState("");
@@ -1798,8 +1805,84 @@ Return ONLY valid JSON matching this schema:
           </div>
         )}
 
+        {/* Mode Navigation Bar */}
+        <div className="col-span-12 flex flex-wrap items-center justify-between gap-3 bg-white p-2.5 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setAppActiveMode("movies")}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                appActiveMode === "movies"
+                  ? "bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-amber-400 shadow-sm border border-slate-800"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <Film className="w-4 h-4 text-amber-400" />
+              <span>🎬 แปลงหนัง Bilibili ➔ MP4 ➔ Drive ➔ iframe (potnuengshop.com)</span>
+              <span className="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-extrabold border border-amber-500/30">
+                พร้อมใช้งาน
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAppActiveMode("ea")}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                appActiveMode === "ea"
+                  ? "bg-indigo-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>📈 สกัดเนื้อหาบอทเทรด EA & MQL</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setAppActiveMode("sheets")}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                appActiveMode === "sheets"
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>📊 แผ่นงาน Google Sheets</span>
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 px-2 text-xs text-slate-500 font-medium">
+            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+            <span className="hidden sm:inline">เว็บไซต์เป้าหมาย:</span>
+            <a 
+              href="https://potnuengshop.com" 
+              target="_blank" 
+              rel="noreferrer"
+              className="font-bold text-slate-800 hover:text-indigo-600 hover:underline inline-flex items-center gap-1"
+            >
+              <span>potnuengshop.com</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        </div>
+
+        {/* Movie Pipeline Active View */}
+        {appActiveMode === "movies" && (
+          <div className="col-span-12">
+            <MovieBilibiliEmbedder
+              user={user}
+              accessToken={token}
+              checkToken={checkToken}
+              connectedSheet={connectedSheet}
+              onRefreshSheet={() => handleFetchRows()}
+              geminiApiKey={geminiApiKey}
+            />
+          </div>
+        )}
+
         {/* Left Column: Inputs and Preset Selectors (span 5) */}
-        <section className="col-span-12 lg:col-span-5 flex flex-col gap-6">
+        {(appActiveMode === "ea" || appActiveMode === "sheets") && (
+          <section className="col-span-12 lg:col-span-5 flex flex-col gap-6">
 
           {/* Card: Paste strategy/code */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
@@ -2130,9 +2213,11 @@ Return ONLY valid JSON matching this schema:
             )}
           </div>
         </section>
+        )}
 
         {/* Right Column: 3. Results & 4. Workshop (span 7) */}
-        <section className="col-span-12 lg:col-span-7 flex flex-col gap-6">
+        {appActiveMode === "ea" && (
+          <section className="col-span-12 lg:col-span-7 flex flex-col gap-6">
           {/* Results Card */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -2871,6 +2956,7 @@ Return ONLY valid JSON matching this schema:
             </div>
           )}
         </section>
+        )}
 
         {/* Bottom Section: Sheets Content Real-Time Sync Table */}
         {connectedSheet && (
