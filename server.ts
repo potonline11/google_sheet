@@ -262,16 +262,41 @@ app.post("/api/analyze", async (req, res) => {
       });
     }
 
-    // Auto-detect Category: Movie vs Software vs Forex EA
-    const isMovie = (category === "movie") || (category !== "ea" && category !== "software" && (
-      /bilibili|snapwc|movie|cinema|film|series|anime|imdb|netflix|เรื่องย่อ|ภาพยนตร์|หนัง|อนิเมะ|ซีรีส์|นักแสดง|ผู้กำกับ/i.test(input)
-    ));
+    // Robust Intelligent Category Detection: Forex EA vs Movie vs Software
+    // 1. Explicit Forex EA keywords
+    const isEAText = /\b(ea|mt4|mt5|mql4|mql5|forex|metatrader|xauusd|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|btc|crypto|pip|pips|lot|lots)\b|expert\s*advisor|scalp(ing|er)?|trading\s*bot|forexcracked|trailing\s*stop|drawdown|gold\s*bot|martingale|grid\s*trad(e|ing)|take\s*profit|stop\s*loss|forex\s*indicator|b-clock|candlestick|backtest|timeframe/i.test(input);
 
-    const isSoftware = !isMovie && ((category === "software") || (category !== "ea" && (
-      /davinci|resolve|adobe|photoshop|premiere|after effects|illustrator|autocad|blender|cinema 4d|windows|office|studio|setup\.exe|x64|x86|installer|portable|v\d+|\.iso|\.zip|software|utility|plugin|vst|crack|full version|keygen|corel|obs|maya|visual studio|driver|antivirus/i.test(input)
-    )));
+    // 2. Explicit Movie keywords
+    const isMovieText = /bilibili|snapwc|เรื่องย่อ|ภาพยนตร์|พากย์ไทย|ซับไทย|กำกับโดย|นักแสดงนำ|หนังโรง|ซีรีส์|อนิเมะ|\b(imdb|netflix|cinema|theatrical|box\s*office)\b/i.test(input);
 
-    const detectedCategory = isMovie ? "movie" : (isSoftware ? "software" : "ea");
+    // 3. Explicit PC/Mac Software keywords (strict names/tools)
+    const isSoftwareText = /davinci|adobe|photoshop|premiere|after\s*effects|illustrator|autocad|blender|cinema\s*4d|setup\.exe|portable\s*app|utility\s*tool|plugin\s*vst|full\s*version\s*crack|keygen|corel\s*draw|obs\s*studio|maya\s*3d|driver\s*pack|antivirus|microsoft\s*office/i.test(input);
+
+    let detectedCategory: "ea" | "software" | "movie" = "ea";
+
+    if (category === "ea") {
+      detectedCategory = "ea";
+    } else if (category === "movie") {
+      // If user typed an EA description while on movie category, prioritize EA
+      detectedCategory = (isEAText && !isMovieText) ? "ea" : "movie";
+    } else if (category === "software") {
+      // If user typed an EA description while on software category, prioritize EA
+      detectedCategory = (isEAText && !isSoftwareText) ? "ea" : "software";
+    } else {
+      // No category specified: detect from text
+      if (isEAText) {
+        detectedCategory = "ea";
+      } else if (isMovieText) {
+        detectedCategory = "movie";
+      } else if (isSoftwareText) {
+        detectedCategory = "software";
+      } else {
+        detectedCategory = "ea"; // Default is EA
+      }
+    }
+
+    const isMovie = detectedCategory === "movie";
+    const isSoftware = detectedCategory === "software";
 
     let prompt = "";
     if (isMovie) {

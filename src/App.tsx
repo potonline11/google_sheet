@@ -349,8 +349,8 @@ export default function App() {
   // Mode navigation: movies vs ea vs sheets vs onedrive
   const [appActiveMode, setAppActiveMode] = useState<"movies" | "ea" | "sheets">("ea");
 
-  // Content Category: Software vs Movie vs Forex EA
-  const [contentCategory, setContentCategory] = useState<ContentCategory>("movie");
+  // Content Category: Forex EA vs Software vs Movie (Default is Forex EA)
+  const [contentCategory, setContentCategory] = useState<ContentCategory>("ea");
 
   // App functional states
   const [inputText, setInputText] = useState("");
@@ -1181,8 +1181,31 @@ export default function App() {
       // 2. Direct browser Gemini API Fallback if user provided a key
       if (keyToUse) {
         try {
-          const isMovie = contentCategory === "movie" || /bilibili|snapwc|movie|cinema|film|series|anime|imdb|netflix|เรื่องย่อ|พากย์ไทย|ซับไทย|กำกับโดย/i.test(inputText);
-          const isSoftware = !isMovie && (contentCategory === "software" || /davinci|resolve|adobe|photoshop|premiere|after effects|blender|windows|studio|x64|x86|installer|portable|v\d+/i.test(inputText));
+          // 1. Explicit Forex EA keywords
+          const isEAText = /\b(ea|mt4|mt5|mql4|mql5|forex|metatrader|xauusd|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|btc|crypto|pip|pips|lot|lots)\b|expert\s*advisor|scalp(ing|er)?|trading\s*bot|forexcracked|trailing\s*stop|drawdown|gold\s*bot|martingale|grid\s*trad(e|ing)|take\s*profit|stop\s*loss|forex\s*indicator|b-clock|candlestick|backtest|timeframe/i.test(inputText);
+
+          // 2. Explicit Movie keywords
+          const isMovieText = /bilibili|snapwc|เรื่องย่อ|ภาพยนตร์|พากย์ไทย|ซับไทย|กำกับโดย|นักแสดงนำ|หนังโรง|ซีรีส์|อนิเมะ|\b(imdb|netflix|cinema|theatrical|box\s*office)\b/i.test(inputText);
+
+          // 3. Explicit PC/Mac Software keywords (strict names/tools)
+          const isSoftwareText = /davinci|adobe|photoshop|premiere|after\s*effects|illustrator|autocad|blender|cinema\s*4d|setup\.exe|portable\s*app|utility\s*tool|plugin\s*vst|full\s*version\s*crack|keygen|corel\s*draw|obs\s*studio|maya\s*3d|driver\s*pack|antivirus|microsoft\s*office/i.test(inputText);
+
+          let detectedCategory: ContentCategory = "ea";
+          if (contentCategory === "ea") {
+            detectedCategory = "ea";
+          } else if (contentCategory === "movie") {
+            detectedCategory = (isEAText && !isMovieText) ? "ea" : "movie";
+          } else if (contentCategory === "software") {
+            detectedCategory = (isEAText && !isSoftwareText) ? "ea" : "software";
+          } else {
+            if (isEAText) detectedCategory = "ea";
+            else if (isMovieText) detectedCategory = "movie";
+            else if (isSoftwareText) detectedCategory = "software";
+            else detectedCategory = "ea";
+          }
+
+          const isMovie = detectedCategory === "movie";
+          const isSoftware = detectedCategory === "software";
 
           let prompt = "";
           if (isMovie) {
@@ -1253,6 +1276,7 @@ Return ONLY valid JSON matching this schema:
               if (directRes.ok && dJson.candidates?.[0]?.content?.parts?.[0]?.text) {
                 const rawText = dJson.candidates[0].content.parts[0].text;
                 parsedData = JSON.parse(rawText);
+                parsedData.category = detectedCategory;
                 break;
               } else {
                 lastDirectError = dJson.error?.message || JSON.stringify(dJson.error || "");
@@ -1275,25 +1299,35 @@ Return ONLY valid JSON matching this schema:
     }
 
     if (parsedData) {
-      const isSoftware = parsedData.category === "software" || contentCategory === "software";
-      parsedData.category = isSoftware ? "software" : "ea";
+      const resolvedCategory: "ea" | "software" | "movie" = 
+        (parsedData.category === "movie" || parsedData.category === "software" || parsedData.category === "ea")
+          ? parsedData.category
+          : (contentCategory === "movie" || contentCategory === "software" ? contentCategory : "ea");
+      parsedData.category = resolvedCategory;
+      if (resolvedCategory !== contentCategory) {
+        setContentCategory(resolvedCategory);
+        localStorage.setItem("content_category", resolvedCategory);
+      }
       setAnalysisResult(parsedData);
       setCustomImagePrompt(parsedData.imagePrompt || "");
-      setVercelProjectName(parsedData.eaName ? parsedData.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "software-landing-page");
+      setVercelProjectName(parsedData.eaName ? parsedData.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : `${resolvedCategory}-landing-page`);
       
-      if (isSoftware) {
+      if (resolvedCategory === "movie") {
+        setGeneratedImageUrl(INSTANT_MOVIE_POSTER_PRESETS[0].url);
+        setLeonardoStatus(`โหลดภาพโปสเตอร์ภาพยนตร์ 4K/8K สำหรับ "${parsedData.eaName}" เรียบร้อยแล้ว`);
+      } else if (resolvedCategory === "software") {
         setGeneratedImageUrl(INSTANT_SOFTWARE_GALLERY[0].url);
-        setLeonardoStatus(`โหลดภาพสเตชั่น DaVinci & VFX คมชัด 8K สำหรับ "${parsedData.eaName}" เรียบร้อยแล้ว`);
+        setLeonardoStatus(`โหลดภาพสเตชั่นซอฟต์แวร์ 8K สำหรับ "${parsedData.eaName}" เรียบร้อยแล้ว`);
       } else {
         setGeneratedImageUrl(INSTANT_PRO_TRADING_GALLERY[0].url);
-        setLeonardoStatus("โหลดภาพกราฟแท่งเทียน MT5 คมชัด 8K พร้อมใช้งาน");
+        setLeonardoStatus(`โหลดภาพกราฟแท่งเทียน MT5 8K สำหรับ EA "${parsedData.eaName}" พร้อมใช้งาน`);
       }
 
       setVercelUrl("");
       setActiveTab("tagline");
 
       // Auto populate search on ForexCracked if EA mode
-      if (!isSoftware) {
+      if (resolvedCategory === "ea") {
         const eaKeyword = (parsedData.eaName || "").trim();
         if (eaKeyword) {
           setForexCrackedSearch(eaKeyword);
@@ -2316,28 +2350,41 @@ Return ONLY valid JSON matching this schema:
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => { setAppActiveMode("ea"); handleSelectCategory("movie"); }}
+              onClick={() => { setAppActiveMode("ea"); handleSelectCategory("ea"); }}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                appActiveMode === "ea" && contentCategory === "movie"
-                  ? "bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 text-white shadow-sm"
+                appActiveMode === "ea" && contentCategory === "ea"
+                  ? "bg-indigo-600 text-white shadow-sm ring-2 ring-indigo-300"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <Film className="w-4 h-4 text-amber-300" />
-              <span>🎬 สกัดเนื้อหาภาพยนตร์ (Bilibili + Snapwc + OneDrive)</span>
+              <Sparkles className="w-4 h-4 text-amber-300" />
+              <span>📈 สกัดเนื้อหา Forex EA (บอทเทรด MT4/MT5)</span>
             </button>
 
             <button
               type="button"
-              onClick={() => { setAppActiveMode("ea"); if (contentCategory === "movie") handleSelectCategory("software"); }}
+              onClick={() => { setAppActiveMode("ea"); handleSelectCategory("movie"); }}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                appActiveMode === "ea" && contentCategory !== "movie"
-                  ? "bg-indigo-600 text-white shadow-sm"
+                appActiveMode === "ea" && contentCategory === "movie"
+                  ? "bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 text-white shadow-sm ring-2 ring-amber-300"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <Laptop className="w-4 h-4" />
-              <span>🖥️ สกัดเนื้อหาซอฟต์แวร์ & EA</span>
+              <Film className="w-4 h-4 text-amber-300" />
+              <span>🎬 สกัดภาพยนตร์ (Bilibili + Snapwc + OneDrive)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setAppActiveMode("ea"); handleSelectCategory("software"); }}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
+                appActiveMode === "ea" && contentCategory === "software"
+                  ? "bg-slate-800 text-white shadow-sm ring-2 ring-slate-400"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              <Laptop className="w-4 h-4 text-sky-400" />
+              <span>🖥️ สกัดซอฟต์แวร์ (PC/Mac)</span>
             </button>
 
             <button
@@ -2345,7 +2392,7 @@ Return ONLY valid JSON matching this schema:
               onClick={() => setAppActiveMode("sheets")}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
                 appActiveMode === "sheets"
-                  ? "bg-sky-600 text-white shadow-sm"
+                  ? "bg-sky-600 text-white shadow-sm ring-2 ring-sky-300"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
@@ -2384,14 +2431,26 @@ Return ONLY valid JSON matching this schema:
             <div className="bg-slate-100 p-1.5 rounded-xl flex flex-wrap items-center gap-1 border border-slate-200">
               <button
                 type="button"
-                onClick={() => handleSelectCategory("movie")}
+                onClick={() => handleSelectCategory("ea")}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  contentCategory === "movie"
-                    ? "bg-white text-amber-700 shadow-xs border border-amber-200"
+                  contentCategory === "ea"
+                    ? "bg-indigo-600 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Film className="w-3.5 h-3.5 text-amber-600" />
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>📈 Forex EA (บอทเทรด)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectCategory("movie")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  contentCategory === "movie"
+                    ? "bg-gradient-to-r from-amber-600 to-rose-600 text-white shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Film className="w-3.5 h-3.5" />
                 <span>🎬 ภาพยนตร์ & ซีรีส์</span>
               </button>
               <button
@@ -2399,24 +2458,12 @@ Return ONLY valid JSON matching this schema:
                 onClick={() => handleSelectCategory("software")}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   contentCategory === "software"
-                    ? "bg-white text-indigo-600 shadow-xs border border-indigo-100"
+                    ? "bg-slate-800 text-white shadow-xs"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
-                <Laptop className="w-3.5 h-3.5 text-indigo-500" />
+                <Laptop className="w-3.5 h-3.5" />
                 <span>🖥️ ซอฟต์แวร์ (Software)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectCategory("ea")}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  contentCategory === "ea"
-                    ? "bg-white text-indigo-600 shadow-xs border border-indigo-100"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                <span>📈 Forex EA</span>
               </button>
             </div>
 
@@ -2765,7 +2812,7 @@ Return ONLY valid JSON matching this schema:
                       ? "Gemini กำลังสกัดคำโปรย เรื่องย่อ & พร้อมต์โปสเตอร์ภาพยนตร์..." 
                       : (contentCategory === "software" 
                         ? "Gemini กำลังเจนคำโปรย & สเปกซอฟต์แวร์..." 
-                        : "กำลังวิเคราะห์ด้วย Gemini AI..."
+                        : "Gemini กำลังวิเคราะห์กลยุทธ์ EA, คำโปรย & พร้อมต์ภาพ 8K..."
                       )
                     }
                   </span>
@@ -2778,7 +2825,7 @@ Return ONLY valid JSON matching this schema:
                       ? "🎬 สกัดข้อมูลภาพยนตร์ + คำโปรย + เรื่องย่อ + พร้อมต์โปสเตอร์ 8K ✨"
                       : (contentCategory === "software" 
                         ? "🚀 เจนคำโปรย สเปก & ภาพ 8K ซอฟต์แวร์ ✨" 
-                        : "วิเคราะห์และแยกข้อมูลด่วน ✨"
+                        : "📈 สกัดข้อมูลกลยุทธ์ EA + คำโปรย + สรุปฟีเจอร์ + พร้อมต์ภาพ 8K ✨"
                       )
                     }
                   </span>
