@@ -57,29 +57,40 @@ const MOVIE_CATEGORIES = [
 // Presets of high quality 4K movie posters
 const INSTANT_MOVIE_POSTER_PRESETS = [
   {
-    title: "Cyberpunk Action / Sci-Fi",
+    title: "Cyberpunk 2077 Sci-Fi Cinema",
     url: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1000&auto=format&fit=crop&q=85",
-    category: "หนังใหม่ 2026"
+    badge: "หนังใหม่ 2026",
+    category: "ไซไฟ / แอ็กชัน"
   },
   {
-    title: "Anime Fantasy / การ์ตูนอนิเมะ",
+    title: "Anime Fantasy 4K Ultra",
     url: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1000&auto=format&fit=crop&q=85",
-    category: "หนังการ์ตูน"
+    badge: "อนิเมะ",
+    category: "แฟนตาซี / เวทมนตร์"
   },
   {
-    title: "Cinema Blockbuster / หนังฟอร์มยักษ์",
+    title: "IMAX Blockbuster Epic Battle",
     url: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1000&auto=format&fit=crop&q=85",
-    category: "หนังชนโรง"
+    badge: "หนังชนโรง",
+    category: "มหากาพย์การต่อสู้"
   },
   {
-    title: "Series / ซีรีส์แฟนตาซี",
+    title: "Top Streaming Series Edition",
     url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1000&auto=format&fit=crop&q=85",
-    category: "ดูซีรีส์"
+    badge: "ดูซีรีส์",
+    category: "สตรีมมิ่ง 4K"
   },
   {
-    title: "Netflix Drama / สตรีมมิ่ง",
+    title: "Netflix Global Thriller",
     url: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1000&auto=format&fit=crop&q=85",
-    category: "NETFLIX"
+    badge: "NETFLIX",
+    category: "ดราม่า / สืบสวน"
+  },
+  {
+    title: "Dark Mystery / Crime Masterpiece",
+    url: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1000&auto=format&fit=crop&q=85",
+    badge: "TOP IMDB",
+    category: "ระทึกขวัญ"
   }
 ];
 
@@ -111,9 +122,14 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
   const [selectedWorksheet, setSelectedWorksheet] = useState("ai_studio_code");
   const [isGeneratingCopy, setIsGeneratingCopy] = useState(false);
 
-  // Step 5: AI Poster Generation & Vercel Blob Upload
+  // Step 5: AI Poster Workshop (Gemini Web Bridge & Instant Gallery)
+  const [imageWorkshopTab, setImageWorkshopTab] = useState<"gemini-web" | "instant">("gemini-web");
   const [posterUrl, setPosterUrl] = useState("");
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
   const [movieImagePrompt, setMovieImagePrompt] = useState("");
+  const [imageUrlInput, setImageUrlInput] = useState("");
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [imageWorkshopError, setImageWorkshopError] = useState<string | null>(null);
   const [posterModel, setPosterModel] = useState("gemini-imagen");
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
   const [posterStatusText, setPosterStatusText] = useState("");
@@ -132,7 +148,6 @@ export const MovieBilibiliEmbedder: React.FC<MovieBilibiliEmbedderProps> = ({
   const [saveStatusMessage, setSaveStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activePreviewTab, setActivePreviewTab] = useState<"player" | "iframeCode" | "htmlBox" | "poster">("player");
-  const [posterTab, setPosterTab] = useState<"ai-gen" | "presets" | "upload">("ai-gen");
 
   // Load saved Vercel Blob Token from localStorage
   useEffect(() => {
@@ -525,23 +540,64 @@ Return ONLY valid JSON:
     }
   };
 
-  // Local File Poster Picker
-  const handleLocalPosterFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Helper to load image file / blob into state (Paste or Drop)
+  const handleLoadImageFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
     setLocalFileName(file.name);
     setLocalFileType(file.type);
-
     const reader = new FileReader();
     reader.onloadend = () => {
       const result = reader.result as string;
       const base64 = result.split(",")[1];
       setLocalFileBase64(base64);
+      setLocalPreviewUrl(result);
       setPosterUrl(result);
+      setPosterStatusText("✅ นำเข้ารูปภาพโปสเตอร์จากคลิปบอร์ด/เครื่องสำเร็จเรียบร้อย!");
+      setImageWorkshopError(null);
       setActivePreviewTab("poster");
     };
     reader.readAsDataURL(file);
+  };
+
+  // 1-Click Copy Prompt and Open gemini.google.com
+  const handleCopyAndOpenGemini = (promptText?: string) => {
+    const titleToUse = movieTitle || "ภาพยนตร์";
+    let p = promptText || movieImagePrompt;
+    if (!p) {
+      p = `Official cinematic 4K movie poster for "${titleToUse}" (${movieCategory}), IMAX typography, dramatic studio lighting, 8k resolution, photorealistic, cinematic masterpiece`;
+      setMovieImagePrompt(p);
+    }
+    navigator.clipboard.writeText(p);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+    setPosterStatusText("📋 คัดลอก Prompt แล้ว! วาง (Ctrl+V) บนเว็บ Gemini แล้วกดส่งคำสั่งได้เลย");
+    window.open("https://gemini.google.com", "_blank");
+  };
+
+  // Global paste event listener for clipboard image (Copy Image on Gemini -> Ctrl+V here)
+  useEffect(() => {
+    const handleGlobalPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            handleLoadImageFile(file);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handleGlobalPaste);
+    return () => window.removeEventListener("paste", handleGlobalPaste);
+  }, [movieTitle, movieCategory]);
+
+  // Local File Poster Picker
+  const handleLocalPosterFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleLoadImageFile(file);
   };
 
   // Save Vercel Blob Token handler
@@ -555,9 +611,9 @@ Return ONLY valid JSON:
 
   // Upload Poster Image to Vercel Blob Storage
   const handleUploadPosterToVercelBlob = async () => {
-    const imageToUpload = localFileBase64 ? `data:${localFileType || 'image/jpeg'};base64,${localFileBase64}` : posterUrl;
+    const imageToUpload = localFileBase64 ? `data:${localFileType || 'image/jpeg'};base64,${localFileBase64}` : (localPreviewUrl || posterUrl);
     if (!imageToUpload) {
-      setErrorMessage("กรุณาสร้างภาพโปสเตอร์ หรือเลือกรูปภาพก่อนทำการอัปโหลด");
+      setImageWorkshopError("กรุณานำเข้ารูปภาพโปสเตอร์ หรือเลือกภาพก่อนทำการอัปโหลด");
       return;
     }
 
@@ -567,13 +623,13 @@ Return ONLY valid JSON:
       .trim();
 
     if (!cleanedToken) {
-      setErrorMessage("กรุณาระบุ Vercel BLOB_READ_WRITE_TOKEN เพื่ออัปโหลดไฟล์ หรือใช้รูปจากคลังภาพได้ทันที");
+      setImageWorkshopError("กรุณาระบุ Vercel BLOB_READ_WRITE_TOKEN ด้านล่างเพื่ออัปโหลดไฟล์ หรือกดปุ่ม '⚡ ใช้รูปนี้ตรงๆ ทันที'");
       setBlobStatusMessage("⚠️ ยังไม่ได้ระบุ BLOB_READ_WRITE_TOKEN (สามารถกรอก Token ด้านล่างได้เลย)");
       return;
     }
 
     setIsUploadingBlob(true);
-    setErrorMessage(null);
+    setImageWorkshopError(null);
     setBlobStatusMessage("กำลังอัปโหลดรูปภาพโปสเตอร์เข้าสู่ Vercel Blob Storage...");
 
     try {
@@ -596,11 +652,13 @@ Return ONLY valid JSON:
       }
 
       setPosterUrl(resData.url);
-      setBlobStatusMessage(`🎉 อัปโหลดขึ้น BLOB สำเร็จ! ลิงก์ถาวร: ${resData.url.substring(0, 45)}...`);
+      setLocalPreviewUrl(resData.url);
+      setBlobStatusMessage(`🎉 อัปโหลดขึ้น BLOB สำเร็จ! ลิงก์ถาวร: ${resData.url}`);
+      setPosterStatusText("✅ อัปโหลดลง Vercel Blob สำเร็จแล้ว พร้อมบันทึกลง Google Sheet!");
       setActivePreviewTab("poster");
     } catch (err: any) {
       console.error("Vercel Blob upload error:", err);
-      setErrorMessage(err.message || "เกิดข้อผิดพลาดในการอัปโหลดภาพลง BLOB");
+      setImageWorkshopError(err.message || "เกิดข้อผิดพลาดในการอัปโหลดภาพลง BLOB");
       setBlobStatusMessage(null);
     } finally {
       setIsUploadingBlob(false);
@@ -1080,196 +1138,348 @@ Return ONLY valid JSON:
             </div>
           </div>
 
-          {/* Step 5: AI Poster Workshop & Vercel Blob Upload */}
+          {/* Step 5: AI Poster Workshop (Gemini Web Bridge & Instant Gallery) */}
           <div className="bg-gradient-to-br from-indigo-50/60 via-slate-50 to-pink-50/60 border border-indigo-200/80 rounded-xl p-5 space-y-4">
             <div className="flex items-center justify-between gap-2 mb-1">
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-purple-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">5</span>
+                <span className="w-6 h-6 rounded-full bg-pink-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">5</span>
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  เจนภาพโปสเตอร์ AI และอัปโหลดลง BLOB
-                  <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-2 py-0.5 rounded-full border border-purple-200">
-                    Vercel Blob Storage
-                  </span>
+                  รูปภาพโปสเตอร์ (Gemini 8K & Vercel BLOB)
                 </h4>
               </div>
 
-              {/* Tabs for Poster Source */}
-              <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-[10px] font-bold">
+              {/* Tabs Switcher: Gemini Web Bridge vs Instant Gallery */}
+              <div className="flex bg-slate-200 p-0.5 rounded-lg text-[10px] font-bold">
                 <button
                   type="button"
-                  onClick={() => setPosterTab("ai-gen")}
-                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${posterTab === "ai-gen" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+                  onClick={() => setImageWorkshopTab("gemini-web")}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    imageWorkshopTab === "gemini-web"
+                      ? "bg-white text-pink-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
                 >
-                  ✨ สั่งเจนภาพ AI
+                  🚀 เจนบนเว็บ Gemini (แนะนำ)
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPosterTab("presets")}
-                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${posterTab === "presets" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
+                  onClick={() => setImageWorkshopTab("instant")}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    imageWorkshopTab === "instant"
+                      ? "bg-white text-indigo-700 shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
                 >
-                  🖼️ คลังภาพสำเร็จรูป
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPosterTab("upload")}
-                  className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${posterTab === "upload" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"}`}
-                >
-                  📁 อัปโหลดจากเครื่อง
+                  ⚡ คลังภาพสำเร็จรูป
                 </button>
               </div>
             </div>
 
-            {/* Tab 1: AI Poster Generator */}
-            {posterTab === "ai-gen" && (
-              <div className="space-y-3 bg-white p-4 rounded-xl border border-indigo-100">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    คำสั่งสร้างภาพโปสเตอร์ (Prompt):
-                  </label>
+            {imageWorkshopTab === "instant" ? (
+              /* Instant Gallery View */
+              <div className="flex flex-col gap-2 bg-white p-3 rounded-xl border border-indigo-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-600">คลิกเลือกภาพโปสเตอร์ภาพยนตร์ คมชัดระดับ 4K HDR:</span>
+                  <span className="text-[9px] text-pink-600 font-semibold bg-pink-50 px-2 py-0.5 rounded-full border border-pink-200">
+                    ✨ 1-Click พร้อมใช้งานทันที
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {INSTANT_MOVIE_POSTER_PRESETS.map((item, idx) => {
+                    const isSelected = (posterUrl === item.url || localPreviewUrl === item.url);
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          setPosterUrl(item.url);
+                          setLocalPreviewUrl(item.url);
+                          setLocalFileBase64(null);
+                          setPosterStatusText(`โหลดภาพ "${item.title}" คมชัด 4K พร้อมใช้งาน`);
+                          setActivePreviewTab("poster");
+                          setImageWorkshopError(null);
+                        }}
+                        className={`group relative rounded-xl border-2 overflow-hidden cursor-pointer transition-all duration-200 shadow-xs flex flex-col ${
+                          isSelected
+                            ? "border-pink-600 ring-2 ring-pink-400/40 bg-pink-50/30 scale-[1.02]"
+                            : "border-slate-200 hover:border-indigo-400 bg-slate-50"
+                        }`}
+                      >
+                        <div className="h-28 w-full overflow-hidden bg-slate-900">
+                          <img 
+                            src={item.url} 
+                            alt={item.title} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                        <div className="p-2 bg-white flex flex-col gap-1 flex-1 justify-between">
+                          <div>
+                            <span className="text-[10px] font-bold text-slate-800 line-clamp-1">{item.title}</span>
+                            <span className="text-[9px] text-slate-500 line-clamp-1">{item.category}</span>
+                          </div>
+                          <span className="text-[8px] font-semibold text-pink-600 bg-pink-50 self-start px-1.5 py-0.5 rounded">
+                            {item.badge}
+                          </span>
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5 bg-pink-600 text-white rounded-full p-1 shadow-sm">
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Gemini Web Bridge Workflow */
+              <div className="flex flex-col gap-3">
+                {/* Step A: Copy & Open Gemini */}
+                <div className="flex flex-col gap-2 bg-indigo-50/70 border border-indigo-200 p-3 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-indigo-900 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> ขั้นตอนที่ 1: ส่งคำสั่ง Prompt ไปยัง Gemini
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cur = movieImagePrompt || "";
+                        if (!cur.includes("cinematic") && !cur.includes("IMAX")) {
+                          const titleToUse = movieTitle || "Movie";
+                          setMovieImagePrompt(`${cur ? cur + ", " : ""}official cinematic movie poster for "${titleToUse}" (${movieCategory}), 8k resolution, IMAX typography, vibrant dramatic studio lighting, ultra-sharp detail, high contrast, cinematic atmosphere, blockbuster masterpiece`);
+                        } else {
+                          setMovieImagePrompt(`${cur}, 8k resolution, IMAX typography, dramatic studio lighting, photorealistic masterpiece`);
+                        }
+                      }}
+                      className="text-[10px] text-indigo-700 font-bold hover:underline flex items-center gap-1 cursor-pointer bg-white px-2 py-0.5 rounded-md border border-indigo-200 shadow-2xs"
+                    >
+                      <Wand2 className="w-3 h-3 text-indigo-600" /> 🪄 บูสต์ 8K
+                    </button>
+                  </div>
+
                   <textarea
                     value={movieImagePrompt}
                     onChange={(e) => setMovieImagePrompt(e.target.value)}
-                    rows={2}
-                    placeholder="Cinematic movie poster for action movie, 8k resolution, IMAX typography, vivid lighting..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-indigo-500 font-mono"
+                    placeholder="ระบุพรอมต์ภาษาอังกฤษเพื่อส่งไปยัง Gemini เช่น Official cinematic movie poster for..."
+                    className="w-full text-xs bg-white border border-indigo-200 rounded-lg p-2.5 min-h-[60px] focus:ring-2 focus:ring-indigo-500 focus:outline-none placeholder-slate-400 font-medium"
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => handleCopyAndOpenGemini(movieImagePrompt)}
+                    className="w-full bg-gradient-to-r from-pink-600 to-indigo-600 hover:from-pink-700 hover:to-indigo-700 text-white font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>🚀 1-Click คัดลอก & เปิดเว็บ Gemini.com</span>
+                  </button>
                 </div>
 
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-slate-600">โมเดล AI:</span>
-                    <select
-                      value={posterModel}
-                      onChange={(e) => setPosterModel(e.target.value)}
-                      className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-800 font-medium cursor-pointer"
-                    >
-                      <option value="gemini-imagen">Google Gemini Imagen 3 (แนะนำ)</option>
-                      <option value="dall-e-3">OpenAI DALL-E 3 (HD Poster)</option>
-                      <option value="flux">Flux AI 8K Cinema Studio</option>
-                    </select>
+                {/* Step B: Paste or Drop Image Back into App */}
+                <div className="flex flex-col gap-2">
+                  <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5 text-pink-600" /> ขั้นตอนที่ 2: นำรูปจาก Gemini กลับมาใส่ในระบบ
+                  </span>
+                  
+                  {/* Dropzone & Paste Box */}
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDraggingOver(true);
+                    }}
+                    onDragLeave={() => setIsDraggingOver(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDraggingOver(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleLoadImageFile(file);
+                    }}
+                    className={`border-2 border-dashed rounded-xl p-3.5 text-center transition-all cursor-pointer relative ${
+                      isDraggingOver
+                        ? "border-pink-500 bg-pink-50/50 scale-[1.01]"
+                        : "border-slate-300 hover:border-indigo-400 bg-white hover:bg-indigo-50/20"
+                    }`}
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleLoadImageFile(file);
+                      }}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                      title="คลิกเพื่อเลือกไฟล์รูปภาพ หรือลากรูปภาพมาวาง"
+                    />
+                    <div className="flex flex-col items-center justify-center gap-1 pointer-events-none">
+                      <div className="bg-pink-50 text-pink-600 p-2 rounded-full">
+                        <Upload className="w-5 h-5" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-800">
+                        วางรูปภาพทันที (กด <kbd className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded border border-slate-300 text-[10px] font-mono">Ctrl+V</kbd>)
+                      </p>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        หรือลากไฟล์ภาพมาวาง / คลิกเลือกรูปภาพจากเครื่อง
+                      </p>
+                    </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={handleGeneratePosterImage}
-                    disabled={isGeneratingPoster}
-                    className="inline-flex items-center gap-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer"
-                  >
-                    <Wand2 className={`w-4 h-4 ${isGeneratingPoster ? "animate-spin" : ""}`} />
-                    <span>{isGeneratingPoster ? "กำลังเจนภาพโปสเตอร์..." : "🎨 สั่งเจนภาพโปสเตอร์หนัง (AI)"}</span>
-                  </button>
+                  {/* Alternative: Image URL Input */}
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      value={imageUrlInput}
+                      onChange={(e) => setImageUrlInput(e.target.value)}
+                      placeholder="หรือวางลิงก์รูปภาพ (Image URL)..."
+                      className="flex-1 text-xs bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (imageUrlInput.trim()) {
+                          setPosterUrl(imageUrlInput.trim());
+                          setLocalPreviewUrl(imageUrlInput.trim());
+                          setLocalFileBase64(null);
+                          setPosterStatusText("✅ นำเข้ารูปภาพจากลิงก์สำเร็จ!");
+                          setImageUrlInput("");
+                          setActivePreviewTab("poster");
+                        }
+                      }}
+                      className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer shrink-0 transition-colors"
+                    >
+                      ตกลง
+                    </button>
+                  </div>
                 </div>
-
-                {posterStatusText && (
-                  <p className="text-[11px] text-purple-700 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>{posterStatusText}</span>
-                  </p>
-                )}
               </div>
             )}
 
-            {/* Tab 2: Preset Posters */}
-            {posterTab === "presets" && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-white p-3 rounded-xl border border-indigo-100">
-                {INSTANT_MOVIE_POSTER_PRESETS.map((pst, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setPosterUrl(pst.url);
-                      setActivePreviewTab("poster");
-                    }}
-                    className={`p-2 rounded-lg border text-left transition-all cursor-pointer ${posterUrl === pst.url ? "border-purple-600 bg-purple-50 ring-2 ring-purple-400" : "border-slate-200 hover:border-purple-300 bg-slate-50"}`}
-                  >
-                    <img src={pst.url} alt={pst.title} className="w-full aspect-[2/3] object-cover rounded-md mb-1.5" />
-                    <span className="text-[11px] font-bold text-slate-800 block truncate">{pst.title}</span>
-                    <span className="text-[10px] text-slate-500">{pst.category}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Image Preview & Status */}
+            <div className="flex flex-col gap-2 pt-1">
+              {imageWorkshopError && (
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-2.5 flex items-start gap-2 text-xs text-rose-700 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-bold text-rose-800">เกิดข้อผิดพลาด:</p>
+                    <p>{imageWorkshopError}</p>
+                  </div>
+                </div>
+              )}
 
-            {/* Tab 3: Local File Upload */}
-            {posterTab === "upload" && (
-              <div className="bg-white p-4 rounded-xl border border-dashed border-indigo-200 text-center space-y-2">
-                <Upload className="w-8 h-8 text-indigo-500 mx-auto opacity-70" />
-                <p className="text-xs font-semibold text-slate-700">ลากวางรูปภาพโปสเตอร์ หรือคลิกเพื่อเลือกไฟล์จากคอมพิวเตอร์</p>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLocalPosterFileChange}
-                  className="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                />
-                {localFileName && (
-                  <p className="text-[11px] text-emerald-600 font-semibold">✓ เลือกไฟล์: {localFileName}</p>
-                )}
-              </div>
-            )}
+              {(posterUrl || localPreviewUrl) && (
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-950 flex flex-col items-center p-3 gap-2.5 shadow-inner animate-fade-in">
+                  <img 
+                    src={localPreviewUrl || posterUrl} 
+                    alt="Movie Poster Preview" 
+                    className="w-full h-auto max-h-[160px] object-contain rounded-lg shadow-md"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="w-full flex items-center justify-between pt-1.5 border-t border-slate-800 text-xs">
+                    <a 
+                      href={localPreviewUrl || posterUrl} 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      className="text-pink-400 hover:underline font-bold inline-flex items-center gap-1 text-[11px]"
+                    >
+                      เปิดภาพเต็ม <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+                      <Check className="w-3 h-3" /> พร้อมบันทึกลงชีต
+                    </span>
+                  </div>
+                </div>
+              )}
 
-            {/* Vercel Blob Uploader Bar */}
-            <div className="bg-white p-4 rounded-xl border border-purple-100 space-y-3">
+              {posterStatusText && (
+                <p className="text-xs text-pink-600 font-semibold text-center">{posterStatusText}</p>
+              )}
+            </div>
+
+            {/* Vercel Blob Storage Permanent Box */}
+            <div className="bg-white p-4 rounded-xl border border-indigo-100 space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <CloudUpload className="w-4 h-4 text-purple-600" />
-                  อัปโหลดภาพโปสเตอร์เข้าสู่ Vercel BLOB Storage (URL ถาวร)
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                  <div className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg">
+                    <Globe className="w-4 h-4" />
+                  </div>
+                  <span>บันทึกถาวร (Vercel Blobs)</span>
+                </div>
+                <span className="text-[10px] text-slate-500">
+                  อัปโหลดเก็บรูปภาพถาวรลงใน Cloud Storage
                 </span>
-                {posterUrl && (
-                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 truncate max-w-[200px]">
-                    {posterUrl.startsWith("http") ? posterUrl.substring(0, 30) + "..." : "พร้อมอัปโหลด"}
-                  </span>
-                )}
               </div>
 
-              {/* Vercel Token Input & Upload Button */}
-              <div className="flex flex-col sm:flex-row gap-2">
-                <div className="flex-1 flex gap-1.5">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                    <Key className="w-3 h-3 text-slate-400" /> Vercel BLOB_READ_WRITE_TOKEN
+                  </label>
+                  <span className="text-[9px] text-slate-400 font-mono">vercel_blob_rw_...</span>
+                </div>
+                <div className="flex gap-1.5">
                   <input
                     type="password"
                     value={vercelBlobToken}
-                    onChange={(e) => setVercelBlobToken(e.target.value)}
-                    placeholder="BLOB_READ_WRITE_TOKEN (vercel_blob_rw_...)"
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-800 placeholder-slate-400"
+                    onChange={(e) => handleSaveBlobToken(e.target.value)}
+                    placeholder="วางคีย์ BLOB_READ_WRITE_TOKEN..."
+                    className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => handleSaveBlobToken(vercelBlobToken)}
-                    title="บันทึก Token ลงในระบบ"
-                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-colors cursor-pointer"
+                    className="bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs px-3 py-2 rounded-lg font-semibold transition-colors cursor-pointer"
                   >
                     บันทึก
                   </button>
                 </div>
-
-                <button
-                  type="button"
-                  onClick={handleUploadPosterToVercelBlob}
-                  disabled={isUploadingBlob || (!posterUrl && !localFileBase64)}
-                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-xs cursor-pointer shrink-0"
-                >
-                  <CloudUpload className={`w-4 h-4 ${isUploadingBlob ? "animate-spin" : ""}`} />
-                  <span>{isUploadingBlob ? "กำลังอัปโหลดลง BLOB..." : "☁️ อัปโหลดลง Vercel BLOB"}</span>
-                </button>
               </div>
 
               {blobStatusMessage && (
-                <p className="text-[11px] text-purple-700 font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-purple-600" />
-                  <span>{blobStatusMessage}</span>
-                </p>
+                <div className={`p-2.5 rounded-lg text-xs font-medium ${
+                  blobStatusMessage.startsWith("❌") || blobStatusMessage.startsWith("⚠️") 
+                    ? "bg-rose-50 border border-rose-200 text-rose-700" 
+                    : blobStatusMessage.includes("สำเร็จ") 
+                      ? "bg-emerald-50 border border-emerald-200 text-emerald-700" 
+                      : "bg-indigo-50 border border-indigo-200 text-indigo-700"
+                }`}>
+                  {blobStatusMessage}
+                </div>
               )}
 
-              <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                  URL โปสเตอร์ปัจจุบัน (จะถูกบันทึกลง Google Sheet):
-                </label>
-                <input
-                  type="url"
-                  value={posterUrl}
-                  onChange={(e) => setPosterUrl(e.target.value)}
-                  placeholder="https://...blob.vercel-storage.com/... หรือภาพจากเว็บ"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800 font-mono"
-                />
+              {/* Buttons: Upload to Vercel Blob vs Use Image Directly */}
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleUploadPosterToVercelBlob}
+                  disabled={isUploadingBlob || (!posterUrl && !localPreviewUrl && !localFileBase64)}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 text-white font-bold text-xs py-2.5 px-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all disabled:cursor-not-allowed shadow-xs"
+                >
+                  {isUploadingBlob ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>กำลังอัปโหลดรูปภาพลง BLOB...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>อัปโหลดเข้า Vercel Blobs ☁️</span>
+                    </>
+                  )}
+                </button>
+
+                {(posterUrl || localPreviewUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const targetUrl = localPreviewUrl || posterUrl;
+                      setPosterUrl(targetUrl);
+                      setBlobStatusMessage("✅ เลือกใช้ภาพนี้โดยตรง พร้อมส่งลง Google Sheets แล้ว (ไม่ต้องผ่าน Vercel Blob)");
+                      setPosterStatusText("✅ พร้อมส่งภาพลง Google Sheet แล้ว");
+                    }}
+                    className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-xs py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>⚡ ใช้รูปนี้ตรงๆ ทันที (ไม่ต้องใช้ Vercel Token)</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -33,13 +33,191 @@ import {
   Layers,
   Film,
   Tv,
-  Video
+  Video,
+  Cloud,
+  FileText,
+  Download,
+  FolderDown,
+  Laptop,
+  Cpu,
+  MonitorPlay,
+  Save,
+  FolderOpen
 } from "lucide-react";
+import * as XLSX from "xlsx";
 import { initAuth, googleSignIn, logout, getAccessToken } from "./firebase";
 import { User as FirebaseUser } from "firebase/auth";
-import { EAContent, GoogleSheetInfo } from "./types";
+import { EAContent, GoogleSheetInfo, OneDriveInfo, ContentCategory } from "./types";
 import { ForexCrackedCard } from "./components/ForexCrackedCard";
 import { MovieBilibiliEmbedder } from "./components/MovieBilibiliEmbedder";
+
+// Software Marketing & 3D Workstation Image Style Presets
+const SOFTWARE_IMAGE_STYLE_PRESETS = [
+  {
+    id: "software-box-3d",
+    name: "📦 กล่องซอฟต์แวร์ 3D & Holographic Box Mockup (พรีเมียม 8K)",
+    promptSuffix: "At the very top, large glowing neon 3D metallic header text displaying the exact software name. Center features a sleek, high-tech 3D software box packaging mockup with glossy embossed typography and vibrant LED edge lighting. In the background, a futuristic workstation with dual 4K curved displays showing the software UI and live timeline, volumetric cinematic studio lighting, sharp 8k resolution, photorealistic commercial product photography masterpiece"
+  },
+  {
+    id: "creative-editing-studio",
+    name: "🖥️ สเตชั่นตัดต่อ & ครีเอทีฟมัลติสกรีน (DaVinci / Adobe Studio)",
+    promptSuffix: "At the very top, large glowing 3D metallic neon title header displaying the exact software name. Center shows a luxury high-end video editing command desk with dual OLED monitors displaying multi-track video timeline, 8K color grading wheels, and visual effects nodes. Clean dark studio aesthetic with glowing violet and teal ambient lights, ultra-sharp focus, 8k resolution"
+  },
+  {
+    id: "cyber-tech-hologram",
+    name: "⚡ ไซเบอร์ไฮเทค & นีออนโปรดักชัน (Cyber Tech & UI)",
+    promptSuffix: "At the very top, bold futuristic neon title text displaying the exact software name. Center stage features floating holographic user interface panels, 3D wireframe render elements, and floating particle data streams. Dynamic purple and electric cyan lighting, octane render, 8k photorealistic commercial poster"
+  },
+  {
+    id: "minimal-clean-tech",
+    name: "🚀 มินิมอลโมเดิร์น & ซอฟต์แวร์แดชบอร์ด (Clean Minimal Tech)",
+    promptSuffix: "At the very top, elegant modern metallic title header displaying the exact software name. Minimalist architectural creative workspace, ultra-wide curved screen showing sleek software interface, soft daylight studio illumination, Scandinavian aesthetic, 8k photorealistic commercial presentation"
+  }
+];
+
+const INSTANT_SOFTWARE_GALLERY = [
+  {
+    id: "davinci-studio-monitor",
+    title: "🎬 สเตชั่นตัดต่อวิดีโอ & Color Grading DaVinci 8K",
+    badge: "DaVinci Video",
+    url: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "software-tech-workspace",
+    title: "💻 จอมอนิเตอร์โปรแกรมเมอร์ & ซอฟต์แวร์ทูลส์",
+    badge: "Software Dev",
+    url: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "creative-multitrack",
+    title: "🎨 สตูดิโอครีเอทีฟกราฟิก & โมชัน VFX",
+    badge: "Creative VFX",
+    url: "https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "cyber-security-dashboard",
+    title: "🛡️ ซิสเต็มยูทิลิตี้ & ซอฟต์แวร์แดชบอร์ด",
+    badge: "System Utility",
+    url: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "sound-audio-studio",
+    title: "🎧 สตูดิโอบันทึกเสียง & ซาวด์เอนจิเนียริ่ง",
+    badge: "Audio Studio",
+    url: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?auto=format&fit=crop&w=1200&q=80"
+  },
+  {
+    id: "futuristic-hologram-ui",
+    title: "🌐 โฮโลแกรมไฮเทค 3D & อัลกอริทึม",
+    badge: "Holo UI",
+    url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80"
+  }
+];
+
+const SOFTWARE_PRESETS = [
+  {
+    name: "DaVinci Resolve Studio 18.1.3.0008 (x64)",
+    description: "โปรแกรมตัดต่อวิดีโอระดับมืออาชีพ Color Grading ขั้นเทพ และ Visual Effects สำหรับงานภาพยนตร์ 8K พร้อมระบบ DaVinci Neural Engine AI และเครื่องมือตัดต่อเสียง Fairlight ระดับสตูดิโอ"
+  },
+  {
+    name: "Adobe Premiere Pro 2024 (v24.2) Multilingual x64",
+    description: "โปรแกรมตัดต่อวิดีโอชั้นนำสำหรับครีเอเตอร์และโปรดักชัน รองรับ AI Speech Enhancement, Text-Based Editing, และเรนเดอร์ GPU ความเร็วสูงสำหรับ YouTube, TikTok และภาพยนตร์"
+  },
+  {
+    name: "Blender 4.1 3D Studio & VFX Suite",
+    description: "ชุดซอฟต์แวร์ 3D และกราฟิกแอนิเมชันระดับโลก โอเพนซอร์สเต็มรูปแบบ รองรับ Cycles GPU Rendering, Geometry Nodes และงาน Visual Effects ระดับภาพยนตร์"
+  },
+  {
+    name: "Windows 11 Optimizer & PC Utility Pro (x64)",
+    description: "โปรแกรมเพิ่มความเร็วและทำความสะอาดระบบปฏิบัติการ Windows 11 ปรับแต่งรีจิสทรี จัดการเซอร์วิสเบื้องหลัง และลดค่า Latency สำหรับสายเกมเมอร์และงานตัดต่อ"
+  }
+];
+
+// Movie Presets & Showcase Data
+const MOVIE_PRESETS = [
+  {
+    name: "Avatar: Fire and Ash (2026) [4K IMAX HDR]",
+    description: "มหากาพย์ภาพยนตร์ไซไฟแฟนตาซีฟอร์มยักษ์ เรื่องราวการต่อสู้ครั้งใหม่บนดาวแพนดอร่า ปะทะชนเผ่าเถ้าถ่านสุดดุดัน กราฟิกตระการตา ระบบเสียง Dolby Atmos 7.1 และความคมชัดระดับ 4K HDR",
+    bilibiliUrl: "https://www.bilibili.tv/th/video/avatar-fire-and-ash-4k"
+  },
+  {
+    name: "Demon Slayer: Infinity Castle Arc (ดาบพิฆาตอสูร ภาคปราสาทไร้ขอบเขต)",
+    description: "ภาพยนตร์อนิเมะฟอร์มยักษ์แห่งปี การต่อสู้ครั้งสุดท้ายระหว่างหน่วยพิฆาตอสูรและมุซันในปราสาทไร้ขอบเขต แอนิเมชันระดับปรากฏการณ์จาก Ufotable ความคมชัด 4K พากย์ไทย/ซับไทย",
+    bilibiliUrl: "https://www.bilibili.tv/th/video/demon-slayer-infinity-castle"
+  },
+  {
+    name: "Oppenheimer (4K UHD Director's Cut) พากย์ไทย",
+    description: "ภาพยนตร์ชีวประวัติยอดเยี่ยมรางวัลออสการ์ ผลงานกำกับของ คริสโตเฟอร์ โนแลน ถ่ายทอดเรื่องราวของ เจ. โรเบิร์ต ออปเพนไฮเมอร์ บิดาแห่งระเบิดปรมาณู ระบบภาพ IMAX 70mm",
+    bilibiliUrl: "https://www.bilibili.tv/th/video/oppenheimer-movie-4k"
+  },
+  {
+    name: "Cyberpunk: Edgerunners (4K Ultra HD) ครบทุกตอน",
+    description: "ซีรีส์แอนิเมะไซไฟแอ็กชันสุดเดือดในเมือง Night City ผลงานจากสตูดิโอ Trigger และ CD Projekt RED แสงสีนีออน ดนตรีประกอบระดับตำนาน พากย์ไทยเต็มเรื่อง",
+    bilibiliUrl: "https://www.bilibili.tv/th/video/cyberpunk-edgerunners-hd"
+  }
+];
+
+const MOVIE_IMAGE_STYLE_PRESETS = [
+  {
+    id: "cinema-blockbuster",
+    name: "🍿 โปสเตอร์ฮอลลีวูดฟอร์มยักษ์ (Blockbuster Cinema Poster 8K)",
+    promptSuffix: "At the very top, large glowing 3D embossed cinematic movie title typography displaying the exact movie name. The center features a high-budget theatrical movie poster key visual with epic character silhouettes, dramatic cinematic lighting, rim light, volumetric smoke, embers, anamorphic lens flare, sharp 8k resolution, IMAX official movie poster masterpiece"
+  },
+  {
+    id: "cyberpunk-scifi",
+    name: "⚡ ไซเบอร์พังก์ & ไซไฟล้ำยุค (Cyberpunk Sci-Fi Cinema)",
+    promptSuffix: "At the very top, sharp neon 3D metallic movie title displaying the exact film title. The visual shows a rain-soaked futuristic metropolis with soaring holographic billboards, glowing neon reflections, flying spinner vehicles, dark dystopian mood, hyperrealistic 8k octane render movie poster"
+  },
+  {
+    id: "anime-epic",
+    name: "⚔️ มหากาพย์อนิเมะโรงภาพยนตร์ (Epic Anime Theatrical Poster)",
+    promptSuffix: "At the very top, dynamic Japanese calligraphy style 3D movie title text displaying the exact title. Visual features iconic anime hero in an intense battle stance with glowing mystical aura, swirling particle magic effects, breathtaking celestial sky background, Ufotable Makoto Shinkai aesthetic, 8k wallpaper"
+  },
+  {
+    id: "dark-thriller",
+    name: "🩸 ระทึกขวัญ & สืบสวนเข้มข้น (Dark Mystery Thriller)",
+    promptSuffix: "At the very top, distressed metallic typography displaying the film name. Center shows suspenseful noir composition with dramatic deep shadows, chiaroscuro lighting, psychological thriller atmosphere, film grain, award-winning Cannes Film Festival aesthetic, 8k resolution"
+  }
+];
+
+const INSTANT_MOVIE_POSTER_PRESETS = [
+  {
+    id: "movie-scifi-1",
+    title: "🎬 Cyberpunk Sci-Fi Theatrical Poster 4K",
+    badge: "หนังใหม่ 2026",
+    url: "https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1000&auto=format&fit=crop&q=85"
+  },
+  {
+    id: "movie-anime-2",
+    title: "⚔️ Anime Fantasy Cinema Edition 4K",
+    badge: "อนิเมะ 4K",
+    url: "https://images.unsplash.com/photo-1534447677768-be436bb09401?w=1000&auto=format&fit=crop&q=85"
+  },
+  {
+    id: "movie-imax-3",
+    title: "🍿 IMAX Theatrical Epic Masterpiece",
+    badge: "หนังชนโรง",
+    url: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1000&auto=format&fit=crop&q=85"
+  },
+  {
+    id: "movie-series-4",
+    title: "📺 Top Streaming 4K Ultra Series",
+    badge: "ดูซีรีส์",
+    url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1000&auto=format&fit=crop&q=85"
+  },
+  {
+    id: "movie-netflix-5",
+    title: "🔥 Netflix Global Action Thriller",
+    badge: "NETFLIX",
+    url: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1000&auto=format&fit=crop&q=85"
+  },
+  {
+    id: "movie-crime-6",
+    title: "🎖️ Dark Mystery & Crime Masterpiece",
+    badge: "TOP IMDB",
+    url: "https://images.unsplash.com/photo-1509198397868-475647b2a1e5?w=1000&auto=format&fit=crop&q=85"
+  }
+];
 
 const IMAGE_STYLE_PRESETS = [
   {
@@ -133,6 +311,7 @@ const PRESETS = [
   }
 ];
 
+
 const parseApiResponse = async (response: Response) => {
   const contentType = response.headers.get("content-type") || "";
   const text = await response.text();
@@ -167,14 +346,29 @@ export default function App() {
   const [needsAuth, setNeedsAuth] = useState(true);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Mode navigation: movies vs ea vs sheets
-  const [appActiveMode, setAppActiveMode] = useState<"movies" | "ea" | "sheets">("movies");
+  // Mode navigation: movies vs ea vs sheets vs onedrive
+  const [appActiveMode, setAppActiveMode] = useState<"movies" | "ea" | "sheets">("ea");
+
+  // Content Category: Software vs Movie vs Forex EA
+  const [contentCategory, setContentCategory] = useState<ContentCategory>("movie");
 
   // App functional states
   const [inputText, setInputText] = useState("");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<EAContent | null>(null);
   const [activeTab, setActiveTab] = useState<"tagline" | "features" | "imagePrompt" | "leonardo" | "drive" | "vercel">("tagline");
+
+  // Movie Pipeline & Bilibili/Snapwc Integration states
+  const [bilibiliMovieUrl, setBilibiliMovieUrl] = useState("");
+  const [bilibiliActionStatus, setBilibiliActionStatus] = useState<string | null>(null);
+
+  // OneDrive Integration states
+  const [oneDriveUrl, setOneDriveUrl] = useState("");
+  const [oneDriveDownloadLink, setOneDriveDownloadLink] = useState("");
+  const [connectedOneDrive, setConnectedOneDrive] = useState<OneDriveInfo | null>(null);
+  const [isLoadingOneDrive, setIsLoadingOneDrive] = useState(false);
+  const [oneDriveStatusMessage, setOneDriveStatusMessage] = useState<string | null>(null);
+
 
   // Advanced Integrations states
   const [geminiApiKey, setGeminiApiKey] = useState("");
@@ -459,6 +653,32 @@ export default function App() {
       });
     }
 
+    // Load OneDrive state
+    const savedOneDriveUrl = localStorage.getItem("connected_onedrive_url");
+    const savedOneDriveName = localStorage.getItem("connected_onedrive_name");
+    if (savedOneDriveUrl) {
+      setOneDriveUrl(savedOneDriveUrl);
+      setConnectedOneDrive({
+        name: savedOneDriveName || "OneDrive Excel Database",
+        url: savedOneDriveUrl,
+        type: "shared_link"
+      });
+    }
+
+    const savedOneDriveDownload = localStorage.getItem("onedrive_download_link");
+    if (savedOneDriveDownload) setOneDriveDownloadLink(savedOneDriveDownload);
+
+    const savedCategory = localStorage.getItem("content_category") as ContentCategory;
+    if (savedCategory) setContentCategory(savedCategory);
+
+    const savedRows = localStorage.getItem("saved_onedrive_rows");
+    if (savedRows) {
+      try {
+        const parsed = JSON.parse(savedRows);
+        if (Array.isArray(parsed) && parsed.length > 0) setSheetRows(parsed);
+      } catch {}
+    }
+
     // Load API credentials
     const savedLeoUser = localStorage.getItem("leonardo_username");
     if (savedLeoUser) setLeonardoUsername(savedLeoUser);
@@ -493,6 +713,241 @@ export default function App() {
       setOpenaiApiKey(savedOpenAIKey);
     }
   }, []);
+
+  // Save Content Category
+  const handleSelectCategory = (cat: ContentCategory) => {
+    setContentCategory(cat);
+    localStorage.setItem("content_category", cat);
+    if (cat === "software") {
+      setGeneratedImageUrl(INSTANT_SOFTWARE_GALLERY[0].url);
+      setLeonardoStatus("โหลดภาพสเตชั่นตัดต่อ DaVinci 8K พร้อมใช้งาน");
+    } else if (cat === "movie") {
+      setGeneratedImageUrl(INSTANT_MOVIE_POSTER_PRESETS[0].url);
+      setLeonardoStatus("โหลดภาพโปสเตอร์หนังไซไฟ 4K พร้อมใช้งาน");
+    } else {
+      setGeneratedImageUrl(INSTANT_PRO_TRADING_GALLERY[0].url);
+      setLeonardoStatus("โหลดภาพกราฟแท่งเทียน MT5 8K พร้อมใช้งาน");
+    }
+  };
+
+  // Movie Helper 1: Open Snapwc.com and copy Bilibili URL for conversion
+  const handleOpenSnapwc = () => {
+    const url = bilibiliMovieUrl.trim();
+    if (url) {
+      copyToClipboard(url);
+      setBilibiliActionStatus("📋 คัดลอกลิงก์ Bilibili ให้แล้ว! กำลังเปิด Snapwc.com เพื่อให้คุณกด Ctrl+V วางแปลงไฟล์...");
+    } else {
+      setBilibiliActionStatus("🚀 กำลังเปิด Snapwc.com เพื่อแปลงไฟล์ภาพยนตร์...");
+    }
+    window.open("https://snapwc.com/", "_blank");
+    setTimeout(() => setBilibiliActionStatus(null), 6000);
+  };
+
+  // Movie Helper 2: Extract Bilibili title or fill input
+  const handleExtractBilibiliInfo = () => {
+    const url = bilibiliMovieUrl.trim();
+    if (!url) {
+      setErrorMessage("กรุณาระบุลิงก์ภาพยนตร์ Bilibili.tv ด้านบนก่อน");
+      return;
+    }
+    let extractedName = "";
+    try {
+      const parsed = new URL(url);
+      const parts = parsed.pathname.split("/").filter(Boolean);
+      const lastPart = parts[parts.length - 1] || "";
+      if (lastPart) {
+        extractedName = decodeURIComponent(lastPart).replace(/[-_]/g, " ");
+      }
+    } catch {
+      extractedName = url;
+    }
+
+    const movieInputSample = `ภาพยนตร์จาก Bilibili: ${extractedName || "Bilibili Cinema"}\nลิงก์ต้นทาง: ${url}\nต้องการสกัดชื่อภาพยนตร์อย่างเป็นทางการ, คำโปรยภาพยนตร์สั้นดึงดูดใจ, เรื่องย่อ & ข้อมูลภาพยนตร์ (ความยาว, หมวดหมู่, นักแสดง, สเปก 4K HDR) และพร้อมต์สร้างโปสเตอร์ภาพยนตร์ระดับ 8K Theatrical Cinema Poster`;
+    setInputText(movieInputSample);
+    setBilibiliActionStatus("✨ นำข้อมูลภาพยนตร์จาก Bilibili ลงในช่องสกัดเนื้อหาเรียบร้อยแล้ว! สามารถกด 'สกัดข้อมูลภาพยนตร์' ได้ทันที");
+    setTimeout(() => setBilibiliActionStatus(null), 5000);
+  };
+
+  // Fetch and parse Excel/CSV from OneDrive link
+  const handleFetchOneDrive = async (targetUrl?: string) => {
+    const rawUrl = (targetUrl || oneDriveUrl).trim();
+    if (!rawUrl) {
+      setErrorMessage("กรุณาระบุลิงก์แชร์ของ OneDrive (เช่น ลิงก์ไฟล์ Excel หรือโฟลเดอร์)");
+      return;
+    }
+
+    setIsLoadingOneDrive(true);
+    setOneDriveStatusMessage(`กำลังเชื่อมต่อและดึงไฟล์ Excel จาก OneDrive...`);
+    setErrorMessage(null);
+
+    try {
+      const res = await fetch("/api/onedrive/fetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ onedriveUrl: rawUrl })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "ไม่สามารถดึงข้อมูลจาก OneDrive ได้");
+      }
+
+      setSheetRows(data.rows || []);
+      localStorage.setItem("saved_onedrive_rows", JSON.stringify(data.rows || []));
+
+      const info: OneDriveInfo = {
+        name: data.title || "OneDrive Excel",
+        url: rawUrl,
+        type: "excel",
+        rowCount: data.totalRows || (data.rows ? data.rows.length : 0),
+        lastSynced: new Date().toLocaleTimeString("th-TH")
+      };
+
+      setConnectedOneDrive(info);
+      localStorage.setItem("connected_onedrive_url", rawUrl);
+      localStorage.setItem("connected_onedrive_name", info.name);
+      setOneDriveStatusMessage(`🎉 ดึงข้อมูลสำเร็จ! พบ ${data.totalRows} แถวจากแผ่นงาน "${data.title}"`);
+    } catch (err: any) {
+      console.error("Fetch OneDrive error:", err);
+      const msg = err.message || "เกิดข้อผิดพลาดในการดึงไฟล์จาก OneDrive";
+      setOneDriveStatusMessage(`❌ ${msg}`);
+      setErrorMessage(msg);
+    } finally {
+      setIsLoadingOneDrive(false);
+    }
+  };
+
+  // Handle uploading local Excel / CSV file (from OneDrive desktop or local drive)
+  const handleUploadExcelFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoadingOneDrive(true);
+    setOneDriveStatusMessage(`กำลังอ่านไฟล์ Excel "${file.name}"...`);
+    setErrorMessage(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const buffer = event.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(buffer, { type: "array" });
+        const sheetNames = workbook.SheetNames;
+        if (!sheetNames || sheetNames.length === 0) {
+          throw new Error("ไม่พบแผ่นงานในไฟล์ Excel");
+        }
+
+        const targetSheetName = sheetNames.find(s => /software|ea|content|database/i.test(s)) || sheetNames[0];
+        const sheet = workbook.Sheets[targetSheetName];
+        const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+        const cleanedRows = rawRows
+          .map(row => row.map(cell => String(cell !== undefined && cell !== null ? cell : "").trim()))
+          .filter(row => row.some(cell => cell.length > 0));
+
+        setSheetRows(cleanedRows);
+        localStorage.setItem("saved_onedrive_rows", JSON.stringify(cleanedRows));
+
+        const info: OneDriveInfo = {
+          name: file.name,
+          url: "Local File / OneDrive Sync",
+          type: "file",
+          rowCount: cleanedRows.length,
+          lastSynced: new Date().toLocaleTimeString("th-TH")
+        };
+        setConnectedOneDrive(info);
+        setOneDriveStatusMessage(`🎉 อ่านไฟล์ "${file.name}" สำเร็จ! ดึงมาทั้งหมด ${cleanedRows.length} แถว`);
+      } catch (err: any) {
+        console.error("Upload Excel parse error:", err);
+        setOneDriveStatusMessage(`❌ เกิดข้อผิดพลาดในการอ่านไฟล์: ${err.message}`);
+        setErrorMessage(`ไม่สามารถอ่านไฟล์ Excel ได้: ${err.message}`);
+      } finally {
+        setIsLoadingOneDrive(false);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  // Export current table to a real OneDrive Excel (.xlsx) file
+  const handleExportOneDriveExcel = () => {
+    if (sheetRows.length === 0) {
+      setErrorMessage("ยังไม่มีข้อมูลในตารางสำหรับส่งออก");
+      return;
+    }
+
+    try {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(sheetRows);
+      XLSX.utils.book_append_sheet(wb, ws, "Software Database");
+      
+      const fileName = `OneDrive_Software_Database_${Date.now()}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      setOneDriveStatusMessage(`💾 ส่งออกไฟล์ "${fileName}" เรียบร้อยแล้ว! สามารถอัปโหลดขึ้น OneDrive ได้ทันที`);
+    } catch (err: any) {
+      setErrorMessage(`เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: ${err.message}`);
+    }
+  };
+
+  // Copy table rows as TSV for direct paste into OneDrive Excel Online
+  const handleCopyTableForOneDrive = () => {
+    if (sheetRows.length === 0) {
+      setErrorMessage("ยังไม่มีข้อมูลในตารางสำหรับคัดลอก");
+      return;
+    }
+
+    const tsvContent = sheetRows
+      .map(row => row.map(cell => String(cell).replace(/\t/g, " ").replace(/\n/g, " ")).join("\t"))
+      .join("\n");
+
+    copyToClipboard(tsvContent);
+    setOneDriveStatusMessage("📋 คัดลอกข้อมูลตารางทั้งหมดแล้ว! สามารถเปิด Excel Online บน OneDrive แล้วกด Ctrl+V วางแถวได้ทันที");
+  };
+
+  // Save current analysis result to OneDrive Table
+  const handleSaveToOneDriveTable = () => {
+    if (!analysisResult) {
+      setErrorMessage("ยังไม่มีผลการวิเคราะห์ข้อมูลสำหรับบันทึก");
+      return;
+    }
+
+    const timestamp = new Date().toLocaleString("th-TH", { timeZone: "Asia/Bangkok" });
+    const isMovie = analysisResult.category === "movie" || contentCategory === "movie";
+    const isSoftware = !isMovie && (analysisResult.category === "software" || contentCategory === "software");
+
+    const headers = [
+      "Timestamp",
+      isMovie ? "Movie Title (ชื่อภาพยนตร์)" : (isSoftware ? "Software Name / Version" : "EA Name"),
+      "หมวดหมู่",
+      "Tagline / คำโปรย (HTML)",
+      isMovie ? "Movie Synopsis & Specs / เรื่องย่อ & สเปก (HTML)" : "Features & Specs / สรุปฟีเจอร์ (HTML)",
+      isMovie ? "Movie Poster Prompt 8K" : "Image Gen Prompt",
+      "Poster / Image URL (OneDrive / Web)",
+      isMovie ? "OneDrive Video Link (หรือ Bilibili)" : "OneDrive / Program Download Link"
+    ];
+
+    const newRow = [
+      timestamp,
+      analysisResult.eaName,
+      isMovie ? "Movie / Series (ภาพยนตร์)" : (isSoftware ? "Software / PC Tools" : "Forex EA"),
+      analysisResult.tagline,
+      analysisResult.featuresSummary,
+      analysisResult.imagePrompt,
+      vercelBlobUrl || generatedImageUrl || "",
+      oneDriveDownloadLink || googleDriveUrl || bilibiliMovieUrl || ""
+    ];
+
+    let updatedRows: string[][];
+    if (sheetRows.length === 0) {
+      updatedRows = [headers, newRow];
+    } else {
+      updatedRows = [...sheetRows, newRow];
+    }
+
+    setSheetRows(updatedRows);
+    localStorage.setItem("saved_onedrive_rows", JSON.stringify(updatedRows));
+    setExportSuccess(true);
+    setOneDriveStatusMessage(`🎉 บันทึกข้อมูล "${analysisResult.eaName}" ลงในตาราง OneDrive เรียบร้อยแล้ว!`);
+    setTimeout(() => setExportSuccess(false), 5000);
+  };
 
   // Save OpenAI API Key
   const handleSaveOpenAIKey = (keyVal: string) => {
@@ -691,7 +1146,7 @@ export default function App() {
   // Request analysis from server-side API proxy with direct client fallback
   const handleAnalyze = async () => {
     if (!inputText.trim()) {
-      setErrorMessage("กรุณากรอกรายละเอียดหรือเลือกกลยุทธ์ EA เพื่อทำการวิเคราะห์");
+      setErrorMessage("กรุณากรอกรายละเอียดหรือชื่อโปรแกรม / สเปคเพื่อทำการวิเคราะห์");
       return;
     }
 
@@ -702,14 +1157,15 @@ export default function App() {
     let parsedData: EAContent | null = null;
     const keyToUse = geminiApiKey.trim();
 
-    // 1. Try server-side API
+    // 1. Try server-side API with category
     try {
       const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           input: inputText,
-          geminiApiKey: keyToUse || undefined
+          geminiApiKey: keyToUse || undefined,
+          category: contentCategory
         }),
       });
 
@@ -725,19 +1181,58 @@ export default function App() {
       // 2. Direct browser Gemini API Fallback if user provided a key
       if (keyToUse) {
         try {
-          const prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
-Given the following raw text, EA trading strategy description, MQL code, or feature request:
-1. eaName: short unique name (max 4-5 words)
-2. tagline: catchy marketing tagline in Thai (คำโปรย) styled as clean HTML (e.g. '<p class="text-indigo-600 font-bold">...</p>')
-3. featuresSummary: structured trading features in Thai (สรุปฟีเจอร์) as clean semantic HTML ('<ul>', '<li>', '<strong>', '<span>')
-4. htmlCode: stunning visual showcase presentation card in HTML with Tailwind CSS
-5. imagePrompt: rich, vivid English prompt for financial/forex EA marketing visual (e.g. 3D holographic forex charts, golden Wall Street bull, cybernetic trading bot, multi-currency matrix, dark titanium workstation, 8k octane render, cinematic lighting, photorealistic). Strictly avoid blurry pedestals or empty plates.
+          const isMovie = contentCategory === "movie" || /bilibili|snapwc|movie|cinema|film|series|anime|imdb|netflix|เรื่องย่อ|พากย์ไทย|ซับไทย|กำกับโดย/i.test(inputText);
+          const isSoftware = !isMovie && (contentCategory === "software" || /davinci|resolve|adobe|photoshop|premiere|after effects|blender|windows|studio|x64|x86|installer|portable|v\d+/i.test(inputText));
+
+          let prompt = "";
+          if (isMovie) {
+            prompt = `You are an expert film critic, cinema marketing copywriter, and theatrical promotional designer for movies, blockbuster films, anime, and series.
+Given the following movie title, raw details, synopsis, or Bilibili video description:
+1. eaName: Clean Official Movie Title in Thai and English with Year (e.g. "Avatar: Fire and Ash (2026) [4K IMAX HDR]" or "ดาบพิฆาตอสูร ภาคปราสาทไร้ขอบเขต"). Do NOT mention EA, trading, or software!
+2. tagline: Punchy, emotionally gripping cinema marketing tagline in Thai (คำโปรยภาพยนตร์สั้นดึงดูดใจ) formatted as clean HTML with modern cinema styling (e.g. '<p class="text-amber-400 font-extrabold tracking-wide">มหากาพย์สงครามแห่งดวงดาวบทใหม่... สู่จุดเปลี่ยนแห่งโชคชะตา</p>')
+3. featuresSummary: Comprehensive movie specifications & synopsis in Thai (เรื่องย่อ & ข้อมูลภาพยนตร์) as clean semantic HTML ('<ul>', '<li>', '<strong>', '<span>') including:
+   - เรื่องย่อภาพยนตร์ (Engaging synopsis)
+   - หมวดหมู่ (Genre): เช่น แอ็กชัน / ไซไฟ / แฟนตาซี
+   - นักแสดงนำ & ผู้กำกับ (Cast & Director)
+   - ความยาว & ระบบเสียง/ภาพ (Duration, 4K HDR, Dolby Atmos)
+   - แหล่งรับชม & การสตรีม (OneDrive / Bilibili / Potnuengshop)
+4. htmlCode: Stunning dark cinema theater presentation showcase card in HTML with Tailwind CSS (deep dark black/slate background, gold/amber and crimson accents, movie poster frame, star rating, movie badge, and action buttons for "รับชมภาพยนตร์ (OneDrive)" and "ดาวน์โหลดหนัง")
+5. imagePrompt: Vivid 8K IMAX theatrical cinema movie poster prompt in English (e.g. "At the very top, large glowing 3D embossed cinematic movie title typography displaying the exact movie name. The center features a high-budget theatrical movie poster key visual with epic character silhouettes, dramatic cinematic lighting, rim light, volumetric smoke, embers, anamorphic lens flare, sharp 8k resolution, IMAX official movie poster masterpiece")
 
 Input:
 ${inputText}
 
 Return ONLY valid JSON matching this schema:
 {"eaName": "...", "tagline": "...", "featuresSummary": "...", "htmlCode": "...", "imagePrompt": "..."}`;
+          } else if (isSoftware) {
+            prompt = `You are an expert software engineer, technical copywriter, and digital product marketing designer for PC/Mac desktop software, creative studio tools, utilities, and applications.
+Given the following raw text, software title, version specs, installer notes, or feature requests:
+1. eaName: Clean official Software Name & Version (e.g. "DaVinci Resolve Studio 18.1.3 (x64)"). Do NOT mention EA, trading, or pips!
+2. tagline: Catchy marketing tagline in Thai (คำโปรย) highlighting software speed, creative power, stability, rendering excellence, formatted as clean HTML (e.g. '<p class="text-indigo-600 font-bold">...</p>')
+3. featuresSummary: Structured features & system requirements in Thai (สรุปฟีเจอร์ & สเปกระบบ) as clean semantic HTML ('<ul>', '<li>', '<strong>', '<span>')
+4. htmlCode: Stunning modern software presentation showcase card in HTML with Tailwind CSS
+5. imagePrompt: Commercial 8K software product packaging & workstation mockup prompt (e.g. "At the very top, large glowing neon 3D metallic header text displaying the software name. Center features 3D software box packaging mockup next to dual 4K creative workstation monitors displaying the software UI timeline, volumetric studio lighting, 8k resolution, photorealistic masterpiece")
+
+Input:
+${inputText}
+
+Return ONLY valid JSON matching this schema:
+{"eaName": "...", "tagline": "...", "featuresSummary": "...", "htmlCode": "...", "imagePrompt": "..."}`;
+          } else {
+            prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
+Given the following raw text, EA trading strategy description, MQL code, or feature request:
+1. eaName: short unique name (max 4-5 words)
+2. tagline: catchy marketing tagline in Thai (คำโปรย) styled as clean HTML (e.g. '<p class="text-indigo-600 font-bold">...</p>')
+3. featuresSummary: structured trading features in Thai (สรุปฟีเจอร์) as clean semantic HTML ('<ul>', '<li>', '<strong>', '<span>')
+4. htmlCode: stunning visual showcase presentation card in HTML with Tailwind CSS
+5. imagePrompt: rich, vivid English prompt for financial/forex EA marketing visual (e.g. 3D holographic forex charts, golden Wall Street bull, cybernetic trading bot, multi-currency matrix, dark titanium workstation, 8k octane render, cinematic lighting, photorealistic).
+
+Input:
+${inputText}
+
+Return ONLY valid JSON matching this schema:
+{"eaName": "...", "tagline": "...", "featuresSummary": "...", "htmlCode": "...", "imagePrompt": "..."}`;
+          }
 
           const models = ["gemini-2.5-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite"];
           let lastDirectError = "";
@@ -780,25 +1275,36 @@ Return ONLY valid JSON matching this schema:
     }
 
     if (parsedData) {
+      const isSoftware = parsedData.category === "software" || contentCategory === "software";
+      parsedData.category = isSoftware ? "software" : "ea";
       setAnalysisResult(parsedData);
       setCustomImagePrompt(parsedData.imagePrompt || "");
-      setVercelProjectName(parsedData.eaName ? parsedData.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "ea-landing-page");
-      setGeneratedImageUrl(INSTANT_PRO_TRADING_GALLERY[0].url);
-      setLeonardoStatus("โหลดภาพกราฟแท่งเทียน MT5 คมชัด 8K พร้อมใช้งาน");
+      setVercelProjectName(parsedData.eaName ? parsedData.eaName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-") : "software-landing-page");
+      
+      if (isSoftware) {
+        setGeneratedImageUrl(INSTANT_SOFTWARE_GALLERY[0].url);
+        setLeonardoStatus(`โหลดภาพสเตชั่น DaVinci & VFX คมชัด 8K สำหรับ "${parsedData.eaName}" เรียบร้อยแล้ว`);
+      } else {
+        setGeneratedImageUrl(INSTANT_PRO_TRADING_GALLERY[0].url);
+        setLeonardoStatus("โหลดภาพกราฟแท่งเทียน MT5 คมชัด 8K พร้อมใช้งาน");
+      }
+
       setVercelUrl("");
-      setGoogleDriveUrl("");
       setActiveTab("tagline");
 
-      // Auto populate search on ForexCracked immediately
-      const eaKeyword = (parsedData.eaName || "").trim();
-      if (eaKeyword) {
-        setForexCrackedSearch(eaKeyword);
-        handleSearchForexCracked(eaKeyword);
+      // Auto populate search on ForexCracked if EA mode
+      if (!isSoftware) {
+        const eaKeyword = (parsedData.eaName || "").trim();
+        if (eaKeyword) {
+          setForexCrackedSearch(eaKeyword);
+          handleSearchForexCracked(eaKeyword);
+        }
       }
     }
 
     setIsAnalyzing(false);
   };
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -1810,31 +2316,28 @@ Return ONLY valid JSON matching this schema:
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setAppActiveMode("movies")}
+              onClick={() => { setAppActiveMode("ea"); handleSelectCategory("movie"); }}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                appActiveMode === "movies"
-                  ? "bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-amber-400 shadow-sm border border-slate-800"
+                appActiveMode === "ea" && contentCategory === "movie"
+                  ? "bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <Film className="w-4 h-4 text-amber-400" />
-              <span>🎬 แปลงหนัง Bilibili ➔ MP4 ➔ บีบอัด Altools ➔ Drive ➔ iframe (potnuengshop.com)</span>
-              <span className="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full font-extrabold border border-amber-500/30">
-                พร้อมใช้งาน
-              </span>
+              <Film className="w-4 h-4 text-amber-300" />
+              <span>🎬 สกัดเนื้อหาภาพยนตร์ (Bilibili + Snapwc + OneDrive)</span>
             </button>
 
             <button
               type="button"
-              onClick={() => setAppActiveMode("ea")}
+              onClick={() => { setAppActiveMode("ea"); if (contentCategory === "movie") handleSelectCategory("software"); }}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                appActiveMode === "ea"
+                appActiveMode === "ea" && contentCategory !== "movie"
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <Sparkles className="w-4 h-4" />
-              <span>📈 สกัดเนื้อหาบอทเทรด EA & MQL</span>
+              <Laptop className="w-4 h-4" />
+              <span>🖥️ สกัดเนื้อหาซอฟต์แวร์ & EA</span>
             </button>
 
             <button
@@ -1842,12 +2345,17 @@ Return ONLY valid JSON matching this schema:
               onClick={() => setAppActiveMode("sheets")}
               className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
                 appActiveMode === "sheets"
-                  ? "bg-emerald-600 text-white shadow-sm"
+                  ? "bg-sky-600 text-white shadow-sm"
                   : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
               }`}
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>📊 แผ่นงาน Google Sheets</span>
+              <Cloud className="w-4 h-4 text-sky-200" />
+              <span>☁️ ฐานข้อมูล OneDrive / Excel Database</span>
+              {sheetRows.length > 0 && (
+                <span className="bg-sky-500/30 text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                  {sheetRows.length} แถว
+                </span>
+              )}
             </button>
           </div>
 
@@ -1866,30 +2374,164 @@ Return ONLY valid JSON matching this schema:
           </div>
         </div>
 
-        {/* Movie Pipeline Active View */}
-        {appActiveMode === "movies" && (
-          <div className="col-span-12">
-            <MovieBilibiliEmbedder
-              user={user}
-              accessToken={token}
-              checkToken={checkToken}
-              connectedSheet={connectedSheet}
-              onRefreshSheet={() => handleFetchRows()}
-              geminiApiKey={geminiApiKey}
-            />
-          </div>
-        )}
-
         {/* Left Column: Inputs and Preset Selectors (span 5) */}
-        {(appActiveMode === "ea" || appActiveMode === "sheets") && (
-          <section className="col-span-12 lg:col-span-5 flex flex-col gap-6">
+        <section className="col-span-12 lg:col-span-5 flex flex-col gap-6">
 
-          {/* Card: Paste strategy/code */}
+          {/* Card 1: Input Information (Movie / Software / EA) */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+            
+            {/* Category Selector Tabs */}
+            <div className="bg-slate-100 p-1.5 rounded-xl flex flex-wrap items-center gap-1 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => handleSelectCategory("movie")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  contentCategory === "movie"
+                    ? "bg-white text-amber-700 shadow-xs border border-amber-200"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Film className="w-3.5 h-3.5 text-amber-600" />
+                <span>🎬 ภาพยนตร์ & ซีรีส์</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectCategory("software")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  contentCategory === "software"
+                    ? "bg-white text-indigo-600 shadow-xs border border-indigo-100"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Laptop className="w-3.5 h-3.5 text-indigo-500" />
+                <span>🖥️ ซอฟต์แวร์ (Software)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectCategory("ea")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  contentCategory === "ea"
+                    ? "bg-white text-indigo-600 shadow-xs border border-indigo-100"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                <span>📈 Forex EA</span>
+              </button>
+            </div>
+
+            {/* Movie Bilibili & Snapwc Integration Box */}
+            {contentCategory === "movie" && (
+              <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-amber-500/30 rounded-2xl p-4.5 text-white shadow-md flex flex-col gap-3.5">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      <Film className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-bold text-amber-300">
+                        ดึงลิงก์หนังจาก Bilibili.tv & แปลงไฟล์ใน Snapwc.com
+                      </h4>
+                      <p className="text-[10px] text-slate-400">
+                        ไม่ต้องใช้ iframe แล้ว นำไฟล์ MP4 เก็บไว้บน OneDrive ของคุณได้โดยตรง
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="https://www.bilibili.tv"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[11px] text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 font-semibold"
+                  >
+                    <span>เปิด Bilibili.tv</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+
+                {/* Bilibili URL input */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                    <Tv className="w-3.5 h-3.5 text-sky-400" />
+                    <span>1. วางลิงก์ภาพยนตร์ Bilibili.tv:</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={bilibiliMovieUrl}
+                      onChange={(e) => setBilibiliMovieUrl(e.target.value)}
+                      placeholder="เช่น https://www.bilibili.tv/th/video/478923... หรือ https://bilibili.tv/video/..."
+                      className="flex-1 bg-slate-800/80 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    {bilibiliMovieUrl && (
+                      <button
+                        type="button"
+                        onClick={handleExtractBilibiliInfo}
+                        className="bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 px-2.5 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center gap-1"
+                        title="ดึงข้อมูลลงช่องสกัดเนื้อหาด้านล่าง"
+                      >
+                        <ArrowRight className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">ใส่ช่องสกัด</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Snapwc action button */}
+                <div className="flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleOpenSnapwc}
+                    className="w-full bg-gradient-to-r from-amber-500 via-rose-600 to-amber-600 hover:from-amber-600 hover:to-rose-700 text-white font-extrabold text-xs py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all hover:scale-[1.01]"
+                  >
+                    <ExternalLink className="w-4 h-4 text-amber-200" />
+                    <span>🚀 เปิดแปลงไฟล์ใน Snapwc.com (คัดลอกลิงก์อัตโนมัติ)</span>
+                  </button>
+                  <p className="text-[10px] text-slate-400 text-center">
+                    เมื่อกดปุ่ม ระบบจะคัดลอกลิงก์ Bilibili ให้ทันที เพื่อให้คุณกด <strong>Ctrl+V</strong> วางบน Snapwc.com แล้วโหลดไฟล์ MP4
+                  </p>
+                </div>
+
+                {bilibiliActionStatus && (
+                  <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span>{bilibiliActionStatus}</span>
+                  </div>
+                )}
+
+                {/* 4-Step Workflow Helper Banner */}
+                <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-2.5 text-[10px] text-slate-300 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="flex flex-col">
+                    <span className="font-bold text-amber-400">1. ก็อปลิงก์</span>
+                    <span className="text-slate-400">จาก Bilibili.tv</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-amber-400">2. แปลงไฟล์</span>
+                    <span className="text-slate-400">ใน Snapwc.com (MP4)</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-sky-400">3. เก็บไฟล์</span>
+                    <span className="text-slate-400">ไว้บน OneDrive</span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-bold text-emerald-400">4. สกัดเนื้อหา</span>
+                    <span className="text-slate-400">คำโปรย+เรื่องย่อ+โปสเตอร์</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2 text-slate-800 font-semibold">
                 <BookOpen className="w-5 h-5 text-indigo-500" />
-                <span>1. ข้อมูลกลยุทธ์ หรือสเปค EA (พร้อมวิเคราะห์)</span>
+                <span>
+                  {contentCategory === "movie"
+                    ? "ข้อมูลภาพยนตร์, คำโปรย และรายละเอียดรูปภาพโปสเตอร์"
+                    : (contentCategory === "software" 
+                      ? "1. ระบุชื่อโปรแกรม หรือสเปคซอฟต์แวร์ (พร้อมวิเคราะห์)"
+                      : "1. ข้อมูลกลยุทธ์ หรือสเปค EA (พร้อมวิเคราะห์)"
+                    )
+                  }
+                </span>
               </div>
               {inputText && (
                 <button
@@ -1902,23 +2544,36 @@ Return ONLY valid JSON matching this schema:
                   className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors"
                 >
                   <Copy className="w-3 h-3" />
-                  <span>{forexCrackedCopied ? "คัดลอกแล้ว!" : "คัดลอกข้อความ"}</span>
+                  <span>{forexCrackedCopied ? "คัดลอกแล้ว!" : "คัดลอก"}</span>
                 </button>
               )}
             </div>
             
             <p className="text-xs text-slate-500 leading-relaxed">
-              คุณสามารถระบุคำอธิบายระบบเทรด, ข้อมูลตัวชี้วัด (Indicators), หรือวางโค้ด MQL / ข้อมูลที่ดึงจาก ForexCracked เพื่อให้ Gemini ช่วยคัดสรรคำโปรยการตลาดที่โดนใจ และเขียนโค้ด HTML โชว์เคสฟีเจอร์ให้ทันที
+              {contentCategory === "movie" ? (
+                <>ป้อนชื่อภาพยนตร์ (เช่น <strong>Avatar: Fire and Ash (2026) 4K</strong>, <strong>ดาบพิฆาตอสูร ปราสาทไร้ขอบเขต</strong>), ปีที่ฉาย หรือคัดลอกคำอธิบายเรื่องย่อจาก Bilibili เพื่อให้ Gemini เจน<strong>คำโปรยภาพยนตร์สั้นดึงดูดใจ</strong>, <strong>เรื่องย่อ & ข้อมูลภาพยนตร์ (ความยาว, หมวดหมู่, นักแสดง, สเปก 4K HDR)</strong>, โค้ด Cinema Showcase และ <strong>พร้อมต์โปสเตอร์ภาพยนตร์ระดับ 8K</strong> ทันที</>
+              ) : (contentCategory === "software" ? (
+                <>ป้อนชื่อซอฟต์แวร์ (เช่น <strong>DaVinci Resolve Studio 19</strong>, <strong>Adobe Premiere Pro</strong>, <strong>AutoCAD</strong>, <strong>Blender</strong>) หรือข้อมูลเวอร์ชัน/สเปกติดตั้ง เพื่อให้ Gemini เจน<strong>คำโปรยการตลาด</strong>, <strong>รายละเอียดฟีเจอร์ & ความต้องการของระบบ (System Requirements)</strong>, โค้ด Showcase และ <strong>Prompt ภาพ 8K</strong> สำหรับโปรแกรมทันที</>
+              ) : (
+                <>คุณสามารถระบุคำอธิบายระบบเทรด, ข้อมูลตัวชี้วัด (Indicators), หรือวางโค้ด MQL / ข้อมูลที่ดึงจาก ForexCracked เพื่อให้ Gemini ช่วยคัดสรรคำโปรยการตลาดที่โดนใจ และเขียนโค้ด HTML โชว์เคสฟีเจอร์ให้ทันที</>
+              ))}
             </p>
 
             <textarea
-              className="w-full min-h-[140px] bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all placeholder-slate-400"
-              placeholder="วางข้อมูลสเปคอธิบาย EA, โค้ดโปรแกรมเมอร์ หรือไอเดียจุดเข้าซื้อขายได้ที่นี่ (หรือใช้ปุ่มดึงข้อมูลจาก ForexCracked ด้านบน)..."
+              className="w-full min-h-[130px] bg-slate-50 border border-slate-200 rounded-xl p-3.5 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-400 focus:outline-none transition-all placeholder-slate-400"
+              placeholder={
+                contentCategory === "movie"
+                  ? "วางชื่อภาพยนตร์ เช่น Avatar: Fire and Ash (2026) 4K IMAX, ดาบพิฆาตอสูร ภาคปราสาทไร้ขอบเขต หรือวางเรื่องย่อและรายละเอียดภาพยนตร์ที่นี่..."
+                  : (contentCategory === "software"
+                    ? "วางชื่อโปรแกรม เช่น DaVinci Resolve Studio 18.1.3 (x64), Adobe Premiere Pro 2024 หรือระบุรายละเอียดโปรแกรม/สเปกติดตั้งที่นี่..."
+                    : "วางข้อมูลสเปคอธิบาย EA, โค้ดโปรแกรมเมอร์ หรือไอเดียจุดเข้าซื้อขายได้ที่นี่ (หรือใช้ปุ่มดึงข้อมูลจาก ForexCracked ด้านล่าง)..."
+                  )
+              }
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
             />
 
-            {/* Gemini API Key Configuration Box (Always Prominently Visible) */}
+            {/* Gemini API Key Configuration Box */}
             <div className="bg-gradient-to-r from-indigo-50/90 to-purple-50/70 border border-indigo-200 rounded-xl p-3.5 flex flex-col gap-2.5 shadow-xs">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -2017,229 +2672,354 @@ Return ONLY valid JSON matching this schema:
 
             {/* Presets & Analyze Button */}
             <div className="flex flex-col gap-2">
-              <span className="text-xs font-bold text-slate-700">หรือเลือกเทมเพลตตัวอย่างกลยุทธ์ยอดนิยม:</span>
+              <span className="text-xs font-bold text-slate-700">
+                {contentCategory === "movie"
+                  ? "เลือกภาพยนตร์ตัวอย่างยอดนิยม (คลิกเพื่อทดสอบทันที):"
+                  : (contentCategory === "software" 
+                    ? "เลือกตัวอย่างโปรแกรมยอดนิยม (คลิกเพื่อทดสอบทันที):" 
+                    : "หรือเลือกเทมเพลตตัวอย่างกลยุทธ์ยอดนิยม:"
+                  )
+                }
+              </span>
               <div className="grid grid-cols-1 gap-2">
-                {PRESETS.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => setInputText(preset.description)}
-                    className="p-2.5 text-left border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/40 transition-all group flex flex-col gap-1 cursor-pointer bg-white shadow-2xs"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-slate-800 group-hover:text-indigo-600">
-                        {preset.name}
+                {contentCategory === "movie" ? (
+                  MOVIE_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setInputText(`${preset.name}\n${preset.description}`);
+                        if (preset.bilibiliUrl) setBilibiliMovieUrl(preset.bilibiliUrl);
+                      }}
+                      className="p-2.5 text-left border border-amber-200 rounded-xl hover:border-amber-500 hover:bg-amber-50/40 transition-all group flex flex-col gap-1 cursor-pointer bg-white shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-800 group-hover:text-amber-700 flex items-center gap-1.5">
+                          <Film className="w-3.5 h-3.5 text-amber-500" />
+                          <span>{preset.name}</span>
+                        </span>
+                        <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-semibold">
+                          4K ภาพยนตร์
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 line-clamp-1">
+                        {preset.description}
                       </span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 line-clamp-1">
-                      {preset.description}
-                    </span>
-                  </button>
-                ))}
+                    </button>
+                  ))
+                ) : contentCategory === "software" ? (
+                  SOFTWARE_PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setInputText(`${preset.name}\n${preset.description}`)}
+                      className="p-2.5 text-left border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/40 transition-all group flex flex-col gap-1 cursor-pointer bg-white shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-800 group-hover:text-indigo-600 flex items-center gap-1.5">
+                          <Laptop className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>{preset.name}</span>
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 line-clamp-1">
+                        {preset.description}
+                      </span>
+                    </button>
+                  ))
+                ) : (
+                  PRESETS.map((preset, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setInputText(preset.description)}
+                      className="p-2.5 text-left border border-slate-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50/40 transition-all group flex flex-col gap-1 cursor-pointer bg-white shadow-2xs"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs text-slate-800 group-hover:text-indigo-600">
+                          {preset.name}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 line-clamp-1">
+                        {preset.description}
+                      </span>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
 
             <button
               onClick={handleAnalyze}
               disabled={isAnalyzing || !inputText.trim() || !geminiApiKey.trim()}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+              className={`w-full font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm ${
+                contentCategory === "movie"
+                  ? "bg-gradient-to-r from-amber-600 via-rose-600 to-amber-700 hover:from-amber-700 hover:to-rose-800 text-white disabled:bg-slate-300"
+                  : "bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white"
+              }`}
             >
               {isAnalyzing ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>กำลังวิเคราะห์ด้วย Gemini AI...</span>
+                  <span>
+                    {contentCategory === "movie" 
+                      ? "Gemini กำลังสกัดคำโปรย เรื่องย่อ & พร้อมต์โปสเตอร์ภาพยนตร์..." 
+                      : (contentCategory === "software" 
+                        ? "Gemini กำลังเจนคำโปรย & สเปกซอฟต์แวร์..." 
+                        : "กำลังวิเคราะห์ด้วย Gemini AI..."
+                      )
+                    }
+                  </span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4" />
-                  <span>วิเคราะห์และแยกข้อมูลด่วน ✨</span>
+                  <span>
+                    {contentCategory === "movie"
+                      ? "🎬 สกัดข้อมูลภาพยนตร์ + คำโปรย + เรื่องย่อ + พร้อมต์โปสเตอร์ 8K ✨"
+                      : (contentCategory === "software" 
+                        ? "🚀 เจนคำโปรย สเปก & ภาพ 8K ซอฟต์แวร์ ✨" 
+                        : "วิเคราะห์และแยกข้อมูลด่วน ✨"
+                      )
+                    }
+                  </span>
                 </>
               )}
             </button>
           </div>
 
-          {/* Card: ForexCracked.com Integration (Placed right after Analyze & Auto-Searched) */}
-          <ForexCrackedCard
-            forexCrackedCopied={forexCrackedCopied}
-            handleCopyForexCrackedUrl={handleCopyForexCrackedUrl}
-            forexCrackedUrl={forexCrackedUrl}
-            setForexCrackedUrl={setForexCrackedUrl}
-            handleFetchForexCracked={handleFetchForexCracked}
-            isFetchingForexCracked={isFetchingForexCracked}
-            forexCrackedSearch={forexCrackedSearch}
-            setForexCrackedSearch={setForexCrackedSearch}
-            handleSearchForexCracked={handleSearchForexCracked}
-            forexCrackedStatus={forexCrackedStatus}
-            setForexCrackedStatus={setForexCrackedStatus}
-            forexCrackedResults={forexCrackedResults}
-            setForexCrackedResults={setForexCrackedResults}
-            forexCrackedData={forexCrackedData}
-          />
+          {/* ForexCracked Card: Only displayed when in EA mode */}
+          {contentCategory === "ea" && (
+            <ForexCrackedCard
+              forexCrackedCopied={forexCrackedCopied}
+              handleCopyForexCrackedUrl={handleCopyForexCrackedUrl}
+              forexCrackedUrl={forexCrackedUrl}
+              setForexCrackedUrl={setForexCrackedUrl}
+              handleFetchForexCracked={handleFetchForexCracked}
+              isFetchingForexCracked={isFetchingForexCracked}
+              forexCrackedSearch={forexCrackedSearch}
+              setForexCrackedSearch={setForexCrackedSearch}
+              handleSearchForexCracked={handleSearchForexCracked}
+              forexCrackedStatus={forexCrackedStatus}
+              setForexCrackedStatus={setForexCrackedStatus}
+              forexCrackedResults={forexCrackedResults}
+              setForexCrackedResults={setForexCrackedResults}
+              forexCrackedData={forexCrackedData}
+            />
+          )}
 
-          {/* Card: Google Sheets Connection & Manager */}
+          {/* Card 2: Microsoft OneDrive (Excel Database) Integration */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2 text-slate-800 font-semibold">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
-                <span>2. เชื่อมต่อ Google Sheets</span>
+                <Cloud className="w-5 h-5 text-sky-600" />
+                <span>2. ดึงข้อมูลจาก Microsoft OneDrive (Excel Database)</span>
               </div>
-              {connectedSheet && (
-                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-bold px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                  <Check className="w-3 h-3 text-emerald-600" /> เชื่อมต่อแล้ว
+              {connectedOneDrive && (
+                <span className="text-[10px] bg-sky-50 text-sky-700 font-bold px-2 py-0.5 rounded-full border border-sky-200 flex items-center gap-1">
+                  <Check className="w-3 h-3 text-sky-600" /> เชื่อมต่อแล้ว
                 </span>
               )}
             </div>
 
-            {needsAuth ? (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col items-center gap-3 text-center">
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  กรุณาลงชื่อเข้าใช้ Google เพื่อสร้างไฟล์หรือเชื่อมต่อชีตสำหรับส่งออกข้อมูลโดยอัตโนมัติ
-                </p>
-                <button
-                  onClick={handleLogin}
-                  disabled={isLoggingIn}
-                  className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-semibold text-xs py-2 px-4 rounded-lg flex items-center gap-2 cursor-pointer transition-colors shadow-xs"
-                >
-                  {isLoggingIn ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <User className="w-4 h-4" />
-                  )}
-                  <span>Sign in with Google เพื่อใช้งาน Sheets</span>
-                </button>
-              </div>
-            ) : connectedSheet ? (
+            <p className="text-xs text-slate-500 leading-relaxed">
+              ดึงข้อมูลจากไฟล์ Excel หรือ CSV บน <strong>Microsoft OneDrive</strong> / SharePoint ผ่านลิงก์แชร์ หรืออัปโหลดไฟล์ตารางจาก OneDrive บนเครื่องของคุณโดยตรง พร้อมส่งออกและอัปเดตข้อมูลได้ทันที
+            </p>
+
+            {/* If connected to OneDrive or has synced file */}
+            {connectedOneDrive ? (
               <div className="flex flex-col gap-3">
-                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3.5 flex flex-col gap-2">
+                <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-3.5 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-950 truncate max-w-[200px]">
-                      📄 {connectedSheet.title}
+                    <span className="text-xs font-bold text-sky-950 truncate max-w-[240px] flex items-center gap-1.5">
+                      <FileSpreadsheet className="w-4 h-4 text-sky-600 shrink-0" />
+                      <span>{connectedOneDrive.name}</span>
                     </span>
+                    <span className="text-[10px] bg-white border border-sky-200 text-sky-800 font-semibold px-2 py-0.5 rounded-md">
+                      {sheetRows.length} แถว
+                    </span>
+                  </div>
+                  {connectedOneDrive.url && connectedOneDrive.url.startsWith("http") && (
                     <a
-                      href={connectedSheet.spreadsheetUrl}
+                      href={connectedOneDrive.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[11px] text-emerald-700 hover:text-emerald-900 hover:underline flex items-center gap-1 font-semibold"
+                      className="text-[11px] text-sky-700 hover:text-sky-900 hover:underline flex items-center gap-1 font-semibold truncate"
                     >
-                      <span>เปิดชีต</span>
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{connectedOneDrive.url}</span>
                     </a>
-                  </div>
-                  <p className="text-[10px] text-slate-500 font-mono truncate">
-                    ID: {connectedSheet.spreadsheetId}
-                  </p>
-                  <p className="text-[11px] text-emerald-800">
-                    แถบตารางปลายทาง: <strong className="font-semibold text-emerald-900">EA Content</strong>
-                  </p>
+                  )}
+                  {connectedOneDrive.lastSynced && (
+                    <p className="text-[10px] text-slate-500">
+                      ซิงค์ล่าสุด: {connectedOneDrive.lastSynced}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => handleFetchRows()}
-                    disabled={isLoadingSheet}
-                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                    onClick={() => handleFetchOneDrive()}
+                    disabled={isLoadingOneDrive || !oneDriveUrl.trim()}
+                    className="flex-1 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white font-semibold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSheet ? "animate-spin" : ""}`} />
-                    <span>ซิงค์ข้อมูลล่าสุด</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOneDrive ? "animate-spin" : ""}`} />
+                    <span>{isLoadingOneDrive ? "กำลังดึงข้อมูล..." : "ซิงค์จาก OneDrive อีกครั้ง"}</span>
                   </button>
                   <button
-                    onClick={() => saveSheetState(null)}
+                    onClick={() => {
+                      setConnectedOneDrive(null);
+                      setOneDriveUrl("");
+                      localStorage.removeItem("connected_onedrive_url");
+                      localStorage.removeItem("connected_onedrive_name");
+                    }}
                     className="text-xs text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 px-3 py-2 rounded-lg font-medium transition-colors cursor-pointer"
                   >
-                    สลับชีต
+                    สลับไฟล์
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {/* Create New Sheet */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-700">สร้างไฟล์ Google Sheets ใหม่</label>
+              <div className="flex flex-col gap-3">
+                {/* Method 1: OneDrive Sharing Link */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
+                    <span>วางลิงก์แชร์ OneDrive (Sharing Link / Direct Link)</span>
+                  </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      value={spreadsheetTitle}
-                      onChange={(e) => setSpreadsheetTitle(e.target.value)}
-                      placeholder="ชื่อไฟล์ชีต..."
-                      className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                      value={oneDriveUrl}
+                      onChange={(e) => setOneDriveUrl(e.target.value)}
+                      placeholder="https://1drv.ms/x/... หรือ onedrive.live.com..."
+                      className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none placeholder-slate-400"
                     />
                     <button
-                      onClick={handleCreateSheet}
-                      disabled={isCreatingSheet || !spreadsheetTitle.trim()}
-                      className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-xs"
+                      onClick={() => handleFetchOneDrive()}
+                      disabled={isLoadingOneDrive || !oneDriveUrl.trim()}
+                      className="bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-xs"
                     >
-                      {isCreatingSheet ? (
+                      {isLoadingOneDrive ? (
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                       ) : (
-                        <Plus className="w-3.5 h-3.5" />
+                        <Cloud className="w-3.5 h-3.5" />
                       )}
-                      <span>สร้างชีต</span>
+                      <span>ดึงข้อมูล</span>
                     </button>
                   </div>
+                  <p className="text-[10px] text-slate-400">
+                    💡 รองรับลิงก์แชร์ของไฟล์ Excel (.xlsx, .xls) หรือโฟลเดอร์จาก OneDrive ส่วนตัวและ OneDrive for Business
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-slate-400">
+                <div className="flex items-center gap-2 text-slate-400 my-1">
                   <div className="flex-1 h-px bg-slate-200"></div>
                   <span className="text-[10px] uppercase font-bold">หรือ</span>
                   <div className="flex-1 h-px bg-slate-200"></div>
                 </div>
 
-                {/* Connect Existing Sheet */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs font-bold text-slate-700">เชื่อมต่อชีตเดิมด้วย Spreadsheet ID</label>
-                  <div className="flex gap-2">
+                {/* Method 2: Upload Excel File from OneDrive Folder on PC */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    อัปโหลดไฟล์ตาราง Excel จากโฟลเดอร์ OneDrive ในเครื่อง (.xlsx, .xls, .csv)
+                  </label>
+                  <div className="border border-dashed border-sky-300 hover:border-sky-500 rounded-xl p-3 bg-sky-50/30 hover:bg-sky-50/60 transition-colors text-center relative cursor-pointer">
                     <input
-                      type="text"
-                      value={manualSheetId}
-                      onChange={(e) => setManualSheetId(e.target.value)}
-                      placeholder="วาง Spreadsheet ID..."
-                      className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-mono focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleUploadExcelFile}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                     />
-                    <button
-                      onClick={handleConnectManualSheet}
-                      disabled={isLoadingSheet || !manualSheetId.trim()}
-                      className="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-300 text-white font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 cursor-pointer transition-colors shrink-0 shadow-xs"
-                    >
-                      {isLoadingSheet ? (
-                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      ) : (
-                        <FileSpreadsheet className="w-3.5 h-3.5" />
-                      )}
-                      <span>เชื่อมต่อ</span>
-                    </button>
+                    <div className="flex items-center justify-center gap-2 text-xs text-sky-800 font-medium">
+                      <FolderDown className="w-4 h-4 text-sky-600" />
+                      <span>คลิกเพื่อเลือกไฟล์ตาราง หรือลากไฟล์มาวางที่นี่</span>
+                    </div>
                   </div>
                 </div>
               </div>
             )}
+
+            {/* Quick Actions for OneDrive Table */}
+            <div className="border-t border-slate-100 pt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleExportOneDriveExcel}
+                disabled={sheetRows.length === 0}
+                className="flex-1 min-w-[130px] bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 font-semibold text-xs py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                title="ดาวน์โหลดไฟล์ .xlsx พร้อมข้อมูลล่าสุดเพื่ออัปโหลดเก็บใน OneDrive"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-600" />
+                <span>ดาวน์โหลด Excel (.xlsx)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyTableForOneDrive}
+                disabled={sheetRows.length === 0}
+                className="flex-1 min-w-[130px] bg-sky-50 hover:bg-sky-100 disabled:opacity-50 text-sky-800 border border-sky-200 font-semibold text-xs py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                title="คัดลอกข้อมูลทั้งหมดเพื่อนำไปวาง (Ctrl+V) ลงบน Excel Online ของ OneDrive"
+              >
+                <Copy className="w-3.5 h-3.5 text-sky-600" />
+                <span>คัดลอกตาราง (วางใน OneDrive)</span>
+              </button>
+            </div>
+
+            {/* Status Message */}
+            {oneDriveStatusMessage && (
+              <div className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
+                oneDriveStatusMessage.startsWith("❌")
+                  ? "bg-rose-50 text-rose-800 border border-rose-200"
+                  : "bg-sky-50 text-sky-900 border border-sky-200"
+              }`}>
+                <span>{oneDriveStatusMessage}</span>
+              </div>
+            )}
           </div>
         </section>
-        )}
 
         {/* Right Column: 3. Results & 4. Workshop (span 7) */}
         {appActiveMode === "ea" && (
           <section className="col-span-12 lg:col-span-7 flex flex-col gap-6">
           {/* Results Card */}
           <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
                 <Code2 className="w-5 h-5 text-indigo-600" />
-                <h3 className="font-bold text-slate-900 text-sm">3. ผลการวิเคราะห์ & ข้อมูลพร้อมใช้ (Results)</h3>
+                <h3 className="font-bold text-slate-900 text-sm">
+                  {contentCategory === "movie"
+                    ? "3. ข้อมูลภาพยนตร์, คำโปรย, เรื่องย่อ & โค้ดโชว์เคส (Movie Results)"
+                    : (contentCategory === "software"
+                      ? "3. ผลการวิเคราะห์โปรแกรม & ข้อมูลพร้อมใช้ (Software Results)"
+                      : "3. ผลการวิเคราะห์ & ข้อมูลพร้อมใช้ (EA Results)"
+                    )
+                  }
+                </h3>
               </div>
               {analysisResult && (
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={handleSaveToSheet}
-                    disabled={isLoadingSheet || !connectedSheet}
-                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-semibold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-                    title={!connectedSheet ? "กรุณาเชื่อมต่อ Google Sheet ก่อน" : "บันทึกข้อมูลนี้ลง Google Sheets ทันที"}
+                    onClick={handleSaveToOneDriveTable}
+                    className="bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                    title="บันทึกผลการวิเคราะห์นี้ลงในตาราง OneDrive ทันที"
                   >
-                    {isLoadingSheet ? (
-                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Check className="w-3.5 h-3.5" />
-                    )}
-                    <span>บันทึกลง Sheet 📊</span>
+                    <Cloud className="w-3.5 h-3.5 text-white" />
+                    <span>บันทึกลงตาราง OneDrive ☁️</span>
                   </button>
+
+                  {connectedSheet && (
+                    <button
+                      onClick={handleSaveToSheet}
+                      disabled={isLoadingSheet}
+                      className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white font-semibold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                      title="บันทึกข้อมูลนี้ลง Google Sheets สำรอง"
+                    >
+                      {isLoadingSheet ? (
+                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      <span>ลง Sheet 📊</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -2247,93 +3027,129 @@ Return ONLY valid JSON matching this schema:
             {exportSuccess && (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>บันทึกข้อมูล EA ลง Google Sheets สำเร็จเรียบร้อยแล้ว! ข้อมูลจะแสดงในตารางด้านล่าง</span>
+                <span>บันทึกข้อมูลสำเร็จเรียบร้อยแล้ว! ข้อมูลจะแสดงในตารางฐานข้อมูลด้านล่าง</span>
               </div>
             )}
 
             {!analysisResult && !isAnalyzing && (
               <div className="text-center py-12 flex flex-col items-center justify-center gap-3 text-slate-400">
                 <Sparkles className="w-10 h-10 stroke-1 text-slate-300" />
-                <p className="text-sm">กรอกข้อมูลระบบเทรดด้านซ้าย แล้วกดปุ่ม "วิเคราะห์และแยกข้อมูลด่วน" เพื่อดูผลลัพธ์ที่นี่</p>
+                <p className="text-sm">
+                  {contentCategory === "movie"
+                    ? "กรอกชื่อภาพยนตร์หรือวางลิงก์ Bilibili ด้านซ้าย แล้วกดปุ่ม \"สกัดข้อมูลภาพยนตร์\" เพื่อดูผลลัพธ์ที่นี่"
+                    : (contentCategory === "software"
+                      ? "กรอกชื่อซอฟต์แวร์หรือสเปกโปรแกรมด้านซ้าย แล้วกดปุ่ม \"เจนคำโปรย สเปก & ภาพ 8K ซอฟต์แวร์\" เพื่อดูผลลัพธ์ที่นี่"
+                      : "กรอกข้อมูลระบบเทรดด้านซ้าย แล้วกดปุ่ม \"วิเคราะห์และแยกข้อมูลด่วน\" เพื่อดูผลลัพธ์ที่นี่"
+                    )
+                  }
+                </p>
               </div>
             )}
 
             {isAnalyzing && (
               <div className="py-12 flex flex-col items-center justify-center gap-3">
                 <div className="w-8 h-8 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-xs text-indigo-600 font-semibold">Gemini กำลังวิเคราะห์สเปคและสร้างสรรค์คำโปรย...</p>
+                <p className="text-xs text-indigo-600 font-semibold">
+                  {contentCategory === "movie"
+                    ? "Gemini AI กำลังสกัดคำโปรย เรื่องย่อ ข้อมูลสเปกภาพยนตร์ 4K และโค้ด Cinema Showcase..."
+                    : (contentCategory === "software"
+                      ? "Gemini AI กำลังวิเคราะห์สเปกโปรแกรม สร้างคำโปรย และประกอบการ์ดนำเสนอ..."
+                      : "Gemini AI กำลังวิเคราะห์สเปค EA และสร้างสรรค์คำโปรย..."
+                    )
+                  }
+                </p>
               </div>
             )}
 
             {analysisResult && (
               <div className="flex flex-col gap-4">
-                {/* EA Header Info */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
+                {/* Header Info Banner */}
+                <div className="bg-gradient-to-r from-slate-50 to-indigo-50/40 border border-slate-200 rounded-xl p-4 flex flex-col gap-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                      ชื่อ EA ที่แนะนำ
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (analysisResult.eaName) {
-                          setForexCrackedSearch(analysisResult.eaName);
-                          handleSearchForexCracked(analysisResult.eaName);
-                          const el = document.getElementById("forexcracked-section");
-                          if (el) el.scrollIntoView({ behavior: "smooth" });
+                    <span className="text-[10px] uppercase font-bold text-indigo-700 bg-indigo-100/70 px-2.5 py-0.5 rounded-full border border-indigo-200 flex items-center gap-1">
+                      {contentCategory === "movie" ? <Film className="w-3 h-3 text-amber-600" /> : (contentCategory === "software" ? <Laptop className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />)}
+                      <span>
+                        {contentCategory === "movie"
+                          ? "ชื่อภาพยนตร์ & ปีที่ฉาย (Official Movie Title)"
+                          : (contentCategory === "software" ? "ชื่อซอฟต์แวร์ / เวอร์ชั่น (Software Version)" : "ชื่อ EA ที่แนะนำ")
                         }
-                      }}
-                      className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-400/50 px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer shadow-2xs"
-                      title="ค้นหา EA นี้บน ForexCracked.com ทันที"
-                    >
-                      <Search className="w-3 h-3 text-amber-600" />
-                      <span>ค้นหาบน ForexCracked</span>
-                    </button>
+                      </span>
+                    </span>
+                    {contentCategory === "ea" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (analysisResult.eaName) {
+                            setForexCrackedSearch(analysisResult.eaName);
+                            handleSearchForexCracked(analysisResult.eaName);
+                            const el = document.getElementById("forexcracked-section");
+                            if (el) el.scrollIntoView({ behavior: "smooth" });
+                          }
+                        }}
+                        className="text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 border border-amber-400/50 px-2.5 py-1 rounded-lg flex items-center gap-1 font-semibold transition-all cursor-pointer shadow-2xs"
+                        title="ค้นหา EA นี้บน ForexCracked.com ทันที"
+                      >
+                        <Search className="w-3 h-3 text-amber-600" />
+                        <span>ค้นหาบน ForexCracked</span>
+                      </button>
+                    )}
                   </div>
                   <h4 className="text-lg font-extrabold text-slate-900">{analysisResult.eaName}</h4>
                 </div>
 
                 {/* Tab Navigation for Results */}
-                <div className="flex border-b border-slate-200 gap-2 text-xs font-semibold">
+                <div className="flex border-b border-slate-200 gap-2 text-xs font-semibold overflow-x-auto">
                   <button
                     onClick={() => setActiveTab("tagline")}
-                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                       activeTab === "tagline"
                         ? "border-indigo-600 text-indigo-600 font-bold"
                         : "border-transparent text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    1. คำโปรย HTML (Tagline)
+                    {contentCategory === "movie" ? "1. คำโปรยภาพยนตร์ HTML (Tagline)" : "1. คำโปรย HTML (Tagline)"}
                   </button>
                   <button
                     onClick={() => setActiveTab("features")}
-                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                       activeTab === "features"
                         ? "border-indigo-600 text-indigo-600 font-bold"
                         : "border-transparent text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    2. สรุปฟีเจอร์ HTML (Features)
+                    {contentCategory === "movie"
+                      ? "2. เรื่องย่อ & ข้อมูลภาพยนตร์ HTML (Synopsis & Specs)"
+                      : (contentCategory === "software" 
+                        ? "2. สเปก & ฟีเจอร์ HTML (Specs & Features)" 
+                        : "2. สรุปฟีเจอร์ HTML (Features)"
+                      )
+                    }
                   </button>
                   <button
                     onClick={() => setActiveTab("preview")}
-                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                       activeTab === "preview"
                         ? "border-indigo-600 text-indigo-600 font-bold"
                         : "border-transparent text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    3. การ์ด HTML (Card Preview)
+                    {contentCategory === "movie" ? "3. กล่องภาพยนตร์ (Cinema Card Preview)" : "3. การ์ดนำเสนอ (Card Preview)"}
                   </button>
                   <button
                     onClick={() => setActiveTab("imagePrompt")}
-                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer ${
+                    className={`pb-2 px-1 border-b-2 transition-colors cursor-pointer whitespace-nowrap ${
                       activeTab === "imagePrompt"
                         ? "border-indigo-600 text-indigo-600 font-bold"
                         : "border-transparent text-slate-500 hover:text-slate-800"
                     }`}
                   >
-                    4. พรอมต์ภาพ 8K (Image Prompt)
+                    {contentCategory === "movie"
+                      ? "4. พรอมต์โปสเตอร์หนัง 8K (Poster Prompt)"
+                      : (contentCategory === "software" 
+                        ? "4. พรอมต์ภาพซอฟต์แวร์ 8K (Image Prompt)" 
+                        : "4. พรอมต์ภาพ 8K (Image Prompt)"
+                      )
+                    }
                   </button>
                 </div>
 
@@ -2341,7 +3157,9 @@ Return ONLY valid JSON matching this schema:
                 {activeTab === "tagline" && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">ผลลัพธ์คำโปรยการตลาด (Tagline HTML):</span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {contentCategory === "movie" ? "คำโปรยภาพยนตร์สั้นดึงดูดใจ (Movie Tagline HTML):" : "ผลลัพธ์คำโปรยการตลาด (Tagline HTML):"}
+                      </span>
                       <button
                         onClick={() => copyToClipboard(analysisResult.tagline)}
                         className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors"
@@ -2367,11 +3185,19 @@ Return ONLY valid JSON matching this schema:
                   </div>
                 )}
 
-                {/* Tab 2: Features */}
+                {/* Tab 2: Features & System Requirements */}
                 {activeTab === "features" && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">สรุปฟีเจอร์และจุดเด่น (Features HTML):</span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {contentCategory === "movie"
+                          ? "เรื่องย่อ & ข้อมูลภาพยนตร์ (Synopsis & Specifications HTML):"
+                          : (contentCategory === "software" 
+                            ? "สรุปฟีเจอร์เด่น & สเปกระบบคอมพิวเตอร์ (Specs & Features HTML):" 
+                            : "สรุปฟีเจอร์และจุดเด่น (Features HTML):"
+                          )
+                        }
+                      </span>
                       <button
                         onClick={() => copyToClipboard(analysisResult.featuresSummary)}
                         className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-md transition-colors"
@@ -2381,7 +3207,7 @@ Return ONLY valid JSON matching this schema:
                       </button>
                     </div>
                     <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-inner">
-                      <div className="bg-slate-900 text-slate-200 p-3 font-mono text-xs overflow-x-auto max-h-[160px]">
+                      <div className="bg-slate-900 text-slate-200 p-3 font-mono text-xs overflow-x-auto max-h-[180px]">
                         <code>{analysisResult.featuresSummary}</code>
                       </div>
                       <div className="p-4 bg-slate-50 border-t border-slate-200">
@@ -2401,7 +3227,9 @@ Return ONLY valid JSON matching this schema:
                 {activeTab === "preview" && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">ตัวอย่างการ์ดนำเสนอ HTML Showcase:</span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {contentCategory === "movie" ? "ตัวอย่างกล่องแสดงภาพยนตร์ Cinema Showcase Card HTML:" : "ตัวอย่างการ์ดนำเสนอ HTML Showcase:"}
+                      </span>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => copyToClipboard(analysisResult.htmlCode)}
@@ -2424,7 +3252,15 @@ Return ONLY valid JSON matching this schema:
                 {activeTab === "imagePrompt" && (
                   <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-slate-500">พรอมต์สร้างภาพ 8K สำหรับ Gemini Image Generator:</span>
+                      <span className="text-[11px] font-bold text-slate-500">
+                        {contentCategory === "movie"
+                          ? "พรอมต์สร้างโปสเตอร์ภาพยนตร์ 8K (Theatrical Cinema Poster Prompt):"
+                          : (contentCategory === "software" 
+                            ? "พรอมต์สร้างภาพซอฟต์แวร์ 8K (3D Packaging & Workstation):" 
+                            : "พรอมต์สร้างภาพ 8K สำหรับ Gemini Image Generator:"
+                          )
+                        }
+                      </span>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => copyToClipboard(analysisResult.imagePrompt)}
@@ -2474,8 +3310,21 @@ Return ONLY valid JSON matching this schema:
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-pink-600" />
                   <div>
-                    <h3 className="font-bold text-slate-900 text-sm">4. เวิร์กช็อปเตรียมมีเดีย & ไฟล์ดาวน์โหลด (Content Workshop)</h3>
-                    <p className="text-[11px] text-slate-400">ส่ง Prompt ไปเจนที่เว็บ Gemini แล้วดึงรูปกลับมารวมกับลิงก์ Drive และส่งออก Google Sheets</p>
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      {contentCategory === "movie"
+                        ? "4. เวิร์กช็อปโปสเตอร์ภาพยนตร์ 8K & ลิงก์สตรีมมิ่ง (Movie Poster & Streaming Workshop)"
+                        : (contentCategory === "software" 
+                          ? "4. เวิร์กช็อปรูปภาพซอฟต์แวร์ 8K & ลิงก์ดาวน์โหลด (Software Content Workshop)"
+                          : "4. เวิร์กช็อปเตรียมมีเดีย & ไฟล์ดาวน์โหลด (Content Workshop)"
+                        )
+                      }
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      {contentCategory === "movie"
+                        ? "สร้างโปสเตอร์ภาพยนตร์ระดับ 8K ด้วย Gemini หรือเลือกคลังโปสเตอร์ 4K นำมารวมกับลิงก์ OneDrive เพื่อบันทึกเข้าตาราง"
+                        : "ส่ง Prompt ไปเจนที่เว็บ Gemini หรือเลือกคลังภาพสำเร็จรูป นำมารวมกับลิงก์ดาวน์โหลด OneDrive และบันทึกเข้าตาราง"
+                      }
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2491,7 +3340,12 @@ Return ONLY valid JSON matching this schema:
                         <div className="bg-pink-100 text-pink-600 p-1.5 rounded-lg">
                           <ImageIcon className="w-4 h-4" />
                         </div>
-                        <span>1. รูปภาพหน้าปก EA (Gemini 8K)</span>
+                        <span>
+                          {contentCategory === "movie"
+                            ? "1. รูปภาพโปสเตอร์ภาพยนตร์ (8K Cinema Poster)"
+                            : (contentCategory === "software" ? "1. รูปภาพหน้าปกซอฟต์แวร์ (8K)" : "1. รูปภาพหน้าปก EA (8K)")
+                          }
+                        </span>
                       </div>
                     </div>
 
@@ -2507,7 +3361,7 @@ Return ONLY valid JSON matching this schema:
                         }`}
                       >
                         <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-                        <span>🚀 เจนบนเว็บ Gemini (แนะนำ)</span>
+                        <span>🚀 เจนบน Gemini</span>
                       </button>
                       <button
                         type="button"
@@ -2524,13 +3378,22 @@ Return ONLY valid JSON matching this schema:
                     </div>
 
                     {imageWorkshopTab === "instant" ? (
-                      /* Instant 8K Trading Gallery */
+                      /* Instant Gallery (Movie vs Software vs Trading) */
                       <div className="flex flex-col gap-2">
                         <p className="text-[11px] text-slate-500 leading-relaxed">
-                          เลือกภาพกราฟิก EA ระดับมืออาชีพ 8K คมชัดระดับสตูดิโอ คลิกเลือกเพื่อนำไปใช้ได้ทันที:
+                          {contentCategory === "movie"
+                            ? "เลือกโปสเตอร์ภาพยนตร์ 4K คมชัดระดับโรงภาพยนตร์ IMAX:"
+                            : (contentCategory === "software" 
+                              ? "เลือกภาพกราฟิกหน้าจอตัดต่อ สตูดิโอ และซอฟต์แวร์ 8K คมชัดระดับพรีเมียม:" 
+                              : "เลือกภาพกราฟิก EA ระดับมืออาชีพ 8K คมชัดระดับสตูดิโอ:"
+                            )
+                          }
                         </p>
                         <div className="grid grid-cols-2 gap-2 max-h-[220px] overflow-y-auto pr-0.5">
-                          {INSTANT_PRO_TRADING_GALLERY.map((item) => {
+                          {(contentCategory === "movie" 
+                            ? INSTANT_MOVIE_POSTER_PRESETS 
+                            : (contentCategory === "software" ? INSTANT_SOFTWARE_GALLERY : INSTANT_PRO_TRADING_GALLERY)
+                          ).map((item) => {
                             const isSelected = generatedImageUrl === item.url;
                             return (
                               <div
@@ -2581,13 +3444,19 @@ Return ONLY valid JSON matching this schema:
                         <div className="flex flex-col gap-1.5 bg-indigo-50/70 border border-indigo-200 p-2.5 rounded-lg">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-bold text-indigo-900 flex items-center gap-1">
-                              <Sparkles className="w-3 h-3 text-indigo-600" /> ขั้นตอนที่ 1: ส่งคำสั่ง Prompt ไปยัง Gemini
+                              <Sparkles className="w-3 h-3 text-indigo-600" /> ส่ง Prompt ไป Gemini
                             </span>
+                            
+                            {/* Boost Prompt Style Button */}
                             <button
                               type="button"
                               onClick={() => {
                                 const cur = customImagePrompt || analysisResult?.imagePrompt || "";
-                                if (!cur.includes("candlestick") && !cur.includes("MetaTrader")) {
+                                if (contentCategory === "movie") {
+                                  setCustomImagePrompt(`${cur}, high-budget Hollywood blockbuster theatrical movie poster key visual, 3D embossed movie title typography, epic composition, anamorphic lens flare, volumetric smoke and embers, dramatic rim lighting, IMAX 70mm cinematic masterpiece, 8k resolution`);
+                                } else if (contentCategory === "software") {
+                                  setCustomImagePrompt(`${cur}, commercial software presentation infographic poster, 3D holographic software box packaging mockup, sleek curved multi-monitor video editing command desk, ultra-sharp timeline UI, volumetric studio lighting, 8k octane render`);
+                                } else {
                                   setCustomImagePrompt(`${cur}, commercial presentation infographic poster, multi-screen glass workstation, ultra-crisp glowing green and gold EUR/USD candlestick charts, algorithmic trading indicators, bright clean studio backdrop, sharp typography, 8k resolution, photorealistic masterpiece`);
                                 }
                               }}
@@ -2596,6 +3465,46 @@ Return ONLY valid JSON matching this schema:
                               <Wand2 className="w-2.5 h-2.5" /> บูสต์ 8K
                             </button>
                           </div>
+
+                          {/* Movie Style Presets Pills */}
+                          {contentCategory === "movie" && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {MOVIE_IMAGE_STYLE_PRESETS.map((style) => (
+                                <button
+                                  key={style.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const baseTitle = analysisResult?.eaName || "Blockbuster Movie";
+                                    setCustomImagePrompt(`${style.promptSuffix}. Key art visual for movie title: ${baseTitle}`);
+                                  }}
+                                  className="text-[9px] bg-white hover:bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 rounded font-medium transition-colors cursor-pointer truncate max-w-[200px]"
+                                  title={style.name}
+                                >
+                                  {style.name.split(" ")[0]} {style.name.split(" ")[1]}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Software Style Presets Pills */}
+                          {contentCategory === "software" && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {SOFTWARE_IMAGE_STYLE_PRESETS.map((style) => (
+                                <button
+                                  key={style.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const baseTitle = analysisResult?.eaName || "Professional Software";
+                                    setCustomImagePrompt(`${style.promptSuffix}. Specifically branded for: ${baseTitle}`);
+                                  }}
+                                  className="text-[9px] bg-white hover:bg-indigo-100 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded font-medium transition-colors cursor-pointer truncate max-w-[200px]"
+                                  title={style.name}
+                                >
+                                  {style.name.split(" ")[0]} {style.name.split(" ")[1]}
+                                </button>
+                              ))}
+                            </div>
+                          )}
 
                           <textarea
                             value={customImagePrompt || analysisResult?.imagePrompt || ""}
@@ -2617,7 +3526,7 @@ Return ONLY valid JSON matching this schema:
                         {/* Step B: Paste or Drop Image Back into App */}
                         <div className="flex flex-col gap-1.5">
                           <span className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
-                            <Upload className="w-3 h-3 text-pink-600" /> ขั้นตอนที่ 2: นำรูปจาก Gemini กลับมาใส่ในระบบ
+                            <Upload className="w-3 h-3 text-pink-600" /> นำรูปจาก Gemini กลับมาใส่
                           </span>
                           
                           {/* Dropzone & Paste Box */}
@@ -2706,7 +3615,7 @@ Return ONLY valid JSON matching this schema:
                       <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-950 flex flex-col items-center p-2.5 gap-2 shadow-inner animate-fade-in">
                         <img 
                           src={generatedImageUrl || localPreviewUrl || ""} 
-                          alt="EA Graphic Preview" 
+                          alt="Graphic Preview" 
                           className="w-full h-auto max-h-[140px] object-contain rounded-md shadow-md"
                           referrerPolicy="no-referrer"
                         />
@@ -2720,7 +3629,7 @@ Return ONLY valid JSON matching this schema:
                             เปิดภาพเต็ม <ExternalLink className="w-2.5 h-2.5" />
                           </a>
                           <span className="text-[9px] text-emerald-400 font-semibold flex items-center gap-1">
-                            <Check className="w-2.5 h-2.5" /> พร้อมบันทึกลงชีต
+                            <Check className="w-2.5 h-2.5" /> พร้อมบันทึก
                           </span>
                         </div>
                       </div>
@@ -2732,101 +3641,114 @@ Return ONLY valid JSON matching this schema:
                   </div>
                 </div>
 
-                {/* Panel 2: Google Drive Exporter / Share link fetcher */}
+                {/* Panel 2: OneDrive / Cloud Download link fetcher */}
                 <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col gap-3 justify-between">
                   <div className="flex flex-col gap-2.5">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                      <div className="bg-amber-100 text-amber-600 p-1.5 rounded-lg">
-                        <HardDrive className="w-4 h-4" />
+                      <div className="bg-sky-100 text-sky-600 p-1.5 rounded-lg">
+                        <Cloud className="w-4 h-4" />
                       </div>
-                      <span>2. ลิงก์แชร์ดาวน์โหลด (Google Drive)</span>
+                      <span>
+                        {contentCategory === "movie" 
+                          ? "2. ลิงก์ไฟล์ภาพยนตร์ (OneDrive Video / Streaming Link)" 
+                          : "2. ลิงก์ดาวน์โหลดโปรแกรม (OneDrive / Cloud)"
+                        }
+                      </span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      คลิกเลือกไฟล์เพื่อดึงลิงก์ดาวน์โหลด หรือค้นหาจากในบัญชี Google Drive ของคุณโดยตรง
+                      {contentCategory === "movie"
+                        ? "ระบุลิงก์ไฟล์วิดีโอภาพยนตร์บน Microsoft OneDrive (หรือ Bilibili) สำหรับปุ่มรับชมและดาวน์โหลด"
+                        : "ระบุลิงก์ดาวน์โหลดตัวติดตั้งโปรแกรมจาก Microsoft OneDrive หรือคลาวด์สตอเรจอื่น เพื่อบันทึกลงตาราง"
+                      }
                     </p>
 
-                    {/* Drive search & file explorer */}
-                    <div className="flex gap-1.5">
+                    {/* OneDrive Direct Download / Sharing URL Input */}
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-bold text-slate-600">
+                        {contentCategory === "movie"
+                          ? "ลิงก์ไฟล์วิดีโอภาพยนตร์บน OneDrive (หรือ URL สตรีมมิ่ง)"
+                          : "ลิงก์ดาวน์โหลดตัวติดตั้ง OneDrive (Download / Share Link)"
+                        }
+                      </label>
                       <input
                         type="text"
-                        value={searchDriveQuery}
-                        onChange={(e) => setSearchDriveQuery(e.target.value)}
-                        placeholder="ชื่อไฟล์ EA / .zip..."
-                        className="flex-1 text-xs bg-white border border-slate-200 rounded-lg p-1.5 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                        value={oneDriveDownloadLink}
+                        onChange={(e) => {
+                          setOneDriveDownloadLink(e.target.value);
+                          localStorage.setItem("onedrive_download_link", e.target.value);
+                        }}
+                        placeholder={
+                          contentCategory === "movie"
+                            ? "https://1drv.ms/v/... หรือ ลิงก์วิดีโอภาพยนตร์ OneDrive..."
+                            : "https://1drv.ms/u/... หรือ ลิงก์ดาวน์โหลดตรง..."
+                        }
+                        className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-sky-500 focus:outline-none font-mono"
                       />
-                      <button
-                        onClick={() => handleListDriveFiles(searchDriveQuery)}
-                        disabled={isListingDriveFiles}
-                        className="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 text-white p-1.5 rounded-lg text-xs font-semibold flex items-center justify-center shrink-0 cursor-pointer"
-                      >
-                        {isListingDriveFiles ? (
-                          <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
-                        ) : (
-                          <Search className="w-3.5 h-3.5" />
-                        )}
-                      </button>
                     </div>
 
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[10px] font-bold text-slate-500">เลือกไฟล์จาก Drive ด้านล่าง:</span>
-                      {isListingDriveFiles ? (
-                        <div className="text-center text-[11px] text-slate-400 py-6 animate-pulse">กำลังดึงรายการไฟล์...</div>
-                      ) : googleDriveFiles.length > 0 ? (
-                        <div className="flex flex-col gap-1 max-h-[105px] overflow-y-auto border border-slate-200 rounded-lg p-1.5 bg-white shadow-inner">
+                    {/* Alternative Google Drive Link Support */}
+                    <div className="border-t border-slate-200 pt-2 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10px] font-bold text-slate-500 flex items-center gap-1">
+                          <HardDrive className="w-3 h-3 text-amber-500" /> หรือเลือกลิงก์จาก Google Drive:
+                        </label>
+                      </div>
+
+                      {/* Drive search & file explorer */}
+                      <div className="flex gap-1.5">
+                        <input
+                          type="text"
+                          value={searchDriveQuery}
+                          onChange={(e) => setSearchDriveQuery(e.target.value)}
+                          placeholder="ค้นหาไฟล์โปรแกรม .zip/.exe..."
+                          className="flex-1 text-[11px] bg-white border border-slate-200 rounded-lg p-1.5 focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                        />
+                        <button
+                          onClick={() => handleListDriveFiles(searchDriveQuery)}
+                          disabled={isListingDriveFiles}
+                          className="bg-slate-800 hover:bg-slate-900 disabled:bg-slate-200 text-white p-1.5 rounded-lg text-xs font-semibold flex items-center justify-center shrink-0 cursor-pointer"
+                        >
+                          {isListingDriveFiles ? (
+                            <div className="w-3.5 h-3.5 border border-white border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Search className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+
+                      {googleDriveFiles.length > 0 && (
+                        <div className="flex flex-col gap-1 max-h-[85px] overflow-y-auto border border-slate-200 rounded-lg p-1 bg-white shadow-inner">
                           {googleDriveFiles.map((file) => (
                             <button
                               key={file.id}
                               onClick={() => {
+                                setOneDriveDownloadLink(file.webViewLink);
                                 setGoogleDriveUrl(file.webViewLink);
-                                localStorage.setItem("google_drive_url", file.webViewLink);
+                                localStorage.setItem("onedrive_download_link", file.webViewLink);
                               }}
-                              className={`text-left text-[10px] p-2 rounded-md hover:bg-amber-50 cursor-pointer transition-all border ${googleDriveUrl === file.webViewLink ? "bg-amber-50/70 border-amber-300 font-bold text-amber-900" : "bg-white border-transparent text-slate-700"}`}
+                              className={`text-left text-[9.5px] p-1.5 rounded-md hover:bg-sky-50 cursor-pointer transition-all border ${oneDriveDownloadLink === file.webViewLink ? "bg-sky-50 border-sky-300 font-bold text-sky-900" : "bg-white border-transparent text-slate-700"}`}
                             >
                               📦 {file.name}
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <div className="text-center text-[10px] text-slate-400 py-6 border border-dashed border-slate-200 rounded-lg bg-white">
-                          <p>ไม่พบไฟล์บอท (.ex4, .ex5, .zip)</p>
-                          <button
-                            onClick={() => handleListDriveFiles("")}
-                            className="text-[9px] text-amber-600 hover:underline font-bold mt-1 block w-full"
-                          >
-                            🔄 โหลดไฟล์ทั้งหมดอีกครั้ง
-                          </button>
-                        </div>
                       )}
-                    </div>
-
-                    {/* Manual override input */}
-                    <div className="flex flex-col gap-1 mt-1">
-                      <label className="text-[10px] font-bold text-slate-500">ลิงก์ Google Drive ดาวน์โหลดโปรแกรม</label>
-                      <input
-                        type="text"
-                        value={googleDriveUrl}
-                        onChange={(e) => {
-                          setGoogleDriveUrl(e.target.value);
-                          localStorage.setItem("google_drive_url", e.target.value);
-                        }}
-                        placeholder="ลิงก์ดาวน์โหลดที่เลือก..."
-                        className="w-full text-xs bg-white border border-slate-200 rounded-lg p-2 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
-                      />
                     </div>
                   </div>
 
                   <div className="mt-2 flex flex-col gap-2">
-                    {needsAuth ? (
-                      <p className="text-[10px] text-rose-500 font-semibold text-center mt-1">กรุณาลงชื่อเข้าใช้ Google ด้านซ้ายก่อน</p>
-                    ) : (
-                      <button
-                        onClick={() => handleListDriveFiles("")}
-                        className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                      >
-                        <HardDrive className="w-3.5 h-3.5" />
-                        <span>ดึงรายการไฟล์จาก Google Drive 📁</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (oneDriveDownloadLink) {
+                          setOneDriveStatusMessage(`✅ ตั้งค่าลิงก์ดาวน์โหลด: ${oneDriveDownloadLink}`);
+                        }
+                      }}
+                      className="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>บันทึกลิงก์ดาวน์โหลดพร้อมส่งลงตาราง</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2837,10 +3759,10 @@ Return ONLY valid JSON matching this schema:
                       <div className="bg-indigo-100 text-indigo-600 p-1.5 rounded-lg">
                         <Globe className="w-4 h-4" />
                       </div>
-                      <span>3. บันทึกถาวร (Vercel Blobs)</span>
+                      <span>3. บันทึกรูปภาพถาวร (Vercel Blobs / ตรง)</span>
                     </div>
                     <p className="text-[11px] text-slate-500 leading-relaxed">
-                      อัปโหลดเก็บรูปภาพโฆษณาถาวรลงใน Vercel Blob Storage เพื่อนำไปใช้เป็นลิงก์ภาพลงใน Google Sheets หรือกดใช้ลิงก์ภาพโดยตรงได้ทันที
+                      อัปโหลดรูปภาพเก็บถาวรลงใน Vercel Blob Storage เพื่อเป็น URL สำหรับส่งออกเข้าตาราง OneDrive หรือกดใช้รูปภาพนี้ตรงๆ ทันที
                     </p>
 
                     <div className="flex flex-col gap-1 mt-1">
@@ -2903,7 +3825,7 @@ Return ONLY valid JSON matching this schema:
                     {vercelBlobUrl && (
                       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-2.5 text-left flex flex-col gap-1 text-[10px]">
                         <p className="text-emerald-700 font-bold flex items-center gap-1">
-                          <Check className="w-3.5 h-3.5" /> ลิงก์รูปภาพพร้อมส่งเข้า Google Sheets แล้ว!
+                          <Check className="w-3.5 h-3.5" /> ลิงก์รูปภาพพร้อมส่งเข้าตารางแล้ว!
                         </p>
                         <a 
                           href={vercelBlobUrl} 
@@ -2941,7 +3863,7 @@ Return ONLY valid JSON matching this schema:
                         onClick={() => {
                           const targetUrl = localPreviewUrl || generatedImageUrl || "";
                           setVercelBlobUrl(targetUrl);
-                          setVercelBlobStatus("✅ เลือกใช้ภาพนี้โดยตรง พร้อมส่งลง Google Sheets แล้ว (ไม่ต้องผ่าน Vercel Blob)");
+                          setVercelBlobStatus("✅ เลือกใช้ภาพนี้โดยตรง พร้อมส่งลงตาราง OneDrive แล้ว (ไม่ต้องผ่าน Vercel Blob)");
                         }}
                         className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold text-[11px] py-1.5 px-2 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-colors"
                       >
@@ -2958,50 +3880,77 @@ Return ONLY valid JSON matching this schema:
         </section>
         )}
 
-        {/* Bottom Section: Sheets Content Real-Time Sync Table */}
-        {connectedSheet && (
+        {/* Bottom Section: Microsoft OneDrive / Excel Real-Time Sync Table */}
+        {(sheetRows.length > 0 || connectedOneDrive || connectedSheet || appActiveMode === "sheets") && (
           <section className="col-span-12 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
               <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                <Cloud className="w-6 h-6 text-sky-600" />
                 <div>
-                  <h3 className="font-bold text-slate-900 text-sm">ข้อมูลล่าสุดในไฟล์ Google Sheets</h3>
-                  <p className="text-xs text-slate-400">ดึงสดจากชีต "{connectedSheet.title}" แผ่นงาน "EA Content"</p>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    {contentCategory === "movie"
+                      ? "ฐานข้อมูลภาพยนตร์ & สตรีมมิ่ง Microsoft OneDrive (Excel Database)"
+                      : (contentCategory === "software" 
+                        ? "ฐานข้อมูลซอฟต์แวร์ Microsoft OneDrive (Excel Database)"
+                        : "ฐานข้อมูลตาราง Microsoft OneDrive / Excel Database"
+                      )
+                    }
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {connectedOneDrive 
+                      ? `เชื่อมต่อกับ "${connectedOneDrive.name}" (ทั้งหมด ${sheetRows.length > 0 ? sheetRows.length - 1 : 0} รายการ)` 
+                      : (contentCategory === "movie"
+                        ? "ตารางรวบรวมชื่อภาพยนตร์ คำโปรย เรื่องย่อ ลิงก์สตรีมมิ่ง OneDrive และโปสเตอร์"
+                        : "ตารางรวบรวมข้อมูลซอฟต์แวร์ คำโปรย สเปกระบบ ลิงก์ดาวน์โหลด และรูปภาพสำหรับ OneDrive"
+                      )
+                    }
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
-                  onClick={() => handleFetchRows()}
-                  disabled={isLoadingSheet}
-                  className="bg-slate-50 hover:bg-slate-100 disabled:bg-slate-200 text-slate-700 border border-slate-200 p-2 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  onClick={handleExportOneDriveExcel}
+                  disabled={sheetRows.length === 0}
+                  className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSheet ? "animate-spin" : ""}`} />
-                  <span>รีเฟรชตาราง</span>
+                  <Download className="w-3.5 h-3.5 text-sky-400" />
+                  <span>ส่งออก Excel (.xlsx)</span>
                 </button>
-                <a
-                  href={connectedSheet.spreadsheetUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-100 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
+
+                <button
+                  onClick={handleCopyTableForOneDrive}
+                  disabled={sheetRows.length === 0}
+                  className="bg-sky-50 hover:bg-sky-100 disabled:opacity-50 text-sky-800 border border-sky-200 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  <span>เปิด Google Sheet</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+                  <Copy className="w-3.5 h-3.5 text-sky-600" />
+                  <span>คัดลอกตาราง (วางใน OneDrive)</span>
+                </button>
+
+                {connectedOneDrive?.url && (
+                  <button
+                    onClick={() => handleFetchOneDrive()}
+                    disabled={isLoadingOneDrive}
+                    className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 p-2 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingOneDrive ? "animate-spin" : ""}`} />
+                    <span>รีเฟรชตาราง</span>
+                  </button>
+                )}
               </div>
             </div>
 
-            {isLoadingSheet && sheetRows.length === 0 ? (
+            {isLoadingOneDrive && sheetRows.length === 0 ? (
               <div className="text-center py-8">
-                <div className="w-8 h-8 border-4 border-slate-100 border-t-emerald-600 rounded-full animate-spin mx-auto mb-2"></div>
-                <p className="text-xs text-slate-500">กำลังเชื่อมต่อฐานข้อมูล Google Sheets...</p>
+                <div className="w-8 h-8 border-4 border-slate-100 border-t-sky-600 rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-xs text-slate-500">กำลังเชื่อมต่อฐานข้อมูล Microsoft OneDrive...</p>
               </div>
             ) : sheetRows.length <= 1 ? (
               <div className="text-center py-10 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
-                <FileSpreadsheet className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-bold text-slate-600">ยังไม่มีข้อมูลรายการบันทึกในไฟล์นี้</p>
-                <p className="text-[10px] text-slate-400 max-w-sm mx-auto mt-1">
-                  เมื่อคุณสกัดข้อมูลบอทเทรดด้วย Gemini สำเร็จ ให้กดปุ่ม "ส่งข้อมูลเข้า Google Sheet" เพื่อบันทึกแถวแรกของคุณ
+                <Cloud className="w-10 h-10 text-sky-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-700">ยังไม่มีข้อมูลในตาราง</p>
+                <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-1">
+                  วางลิงก์แชร์ OneDrive ด้านซ้าย หรืออัปโหลดไฟล์ Excel / เมื่อเจนข้อมูลคำโปรยและสเปกซอฟต์แวร์แล้ว ให้กดปุ่ม <strong>"บันทึกลงตาราง OneDrive ☁️"</strong> เพื่อเพิ่มข้อมูลแถวแรกของคุณ
                 </p>
               </div>
             ) : (
@@ -3027,15 +3976,16 @@ Return ONLY valid JSON matching this schema:
                       >
                         <td className="p-3 text-slate-500 whitespace-nowrap font-medium">{row[0]}</td>
                         <td className="p-3 text-slate-900 font-bold">{row[1]}</td>
-                        <td className="p-3 text-slate-600 max-w-[150px] truncate" title={row[2]}>{row[2]}</td>
+                        <td className="p-3 text-slate-700 font-semibold">{row[2]}</td>
                         <td className="p-3 text-slate-600 max-w-[150px] truncate" title={row[3]}>{row[3]}</td>
-                        <td className="p-3 text-slate-400 font-mono text-[10px] max-w-[150px] truncate" title={row[4]}>
-                          {row[4]}
+                        <td className="p-3 text-slate-600 max-w-[150px] truncate" title={row[4]}>{row[4]}</td>
+                        <td className="p-3 text-slate-400 font-mono text-[10px] max-w-[150px] truncate" title={row[5]}>
+                          {row[5]}
                         </td>
                         <td className="p-3 text-slate-600">
-                          {row[5] && row[5].startsWith("http") ? (
+                          {row[6] && row[6].startsWith("http") ? (
                             <a 
-                              href={row[5]} 
+                              href={row[6]} 
                               target="_blank" 
                               rel="noreferrer" 
                               className="text-pink-600 hover:underline font-semibold inline-flex items-center gap-1"
@@ -3048,14 +3998,14 @@ Return ONLY valid JSON matching this schema:
                           )}
                         </td>
                         <td className="p-3 text-slate-600">
-                          {row[6] && row[6].startsWith("http") ? (
+                          {row[7] && row[7].startsWith("http") ? (
                             <a 
-                              href={row[6]} 
+                              href={row[7]} 
                               target="_blank" 
                               rel="noreferrer" 
-                              className="text-amber-600 hover:underline font-semibold inline-flex items-center gap-1"
+                              className="text-sky-600 hover:underline font-semibold inline-flex items-center gap-1"
                             >
-                              <span>ดูไฟล์ 💾</span>
+                              <span>ดาวน์โหลด 💾</span>
                               <ExternalLink className="w-3 h-3" />
                             </a>
                           ) : (
@@ -3066,10 +4016,10 @@ Return ONLY valid JSON matching this schema:
                           <button
                             onClick={() => handleLoadRowToWorkshop(row)}
                             className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] px-2.5 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1 cursor-pointer"
-                            title="ดึงข้อความพรมต์ภาพจากแถวนี้ไปใช้ในบอร์ดเวิร์กชอปด้านบน"
+                            title="ดึงข้อมูลจากแถวนี้เข้าเวิร์กชอป"
                           >
                             <CloudLightning className="w-3 h-3 text-indigo-600" />
-                            <span>ดึงข้อมูลเข้าเวิร์กชอป ⚡</span>
+                            <span>ดึงเข้าเวิร์กชอป ⚡</span>
                           </button>
                         </td>
                       </tr>

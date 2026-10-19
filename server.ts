@@ -3,13 +3,41 @@ import path from "path";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { put } from "@vercel/blob";
+import * as XLSX from "xlsx";
 
 dotenv.config();
 
 const app = express();
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "15mb" }));
 
 const PORT = 3000;
+
+// Helper to convert OneDrive/SharePoint sharing links into direct download links
+function getOneDriveDirectDownloadUrl(rawUrl: string): string {
+  let url = rawUrl.trim();
+  
+  // Already direct download or raw file
+  if (url.includes("download=1") || url.endsWith(".xlsx") || url.endsWith(".xls") || url.endsWith(".csv")) {
+    return url;
+  }
+
+  // 1drv.ms short links usually redirect to onedrive.live.com or sharepoint
+  if (url.includes("onedrive.live.com")) {
+    if (url.includes("view.aspx")) {
+      return url.replace("view.aspx", "download.aspx");
+    }
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}download=1`;
+  }
+
+  if (url.includes("sharepoint.com")) {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}download=1`;
+  }
+
+  return url;
+}
+
 
 // Cache for storing generated image URLs in-memory
 const imageCache = new Map<string, string>();
@@ -103,10 +131,123 @@ app.post("/api/test-gemini-key", async (req, res) => {
   }
 });
 
-// API endpoint to analyze raw EA text / code and extract Slogan, Features, and HTML code.
+// API endpoint to fetch and parse OneDrive/SharePoint Excel or CSV files
+app.post("/api/onedrive/fetch", async (req, res) => {
+  try {
+    const { onedriveUrl } = req.body || {};
+    if (!onedriveUrl || typeof onedriveUrl !== "string" || !onedriveUrl.trim()) {
+      return res.status(400).json({ ok: false, error: "กรุณาระบุ URL หรือลิงก์แชร์ของ OneDrive" });
+    }
+
+    const directDownloadUrl = getOneDriveDirectDownloadUrl(onedriveUrl);
+    console.log("Fetching OneDrive file from:", directDownloadUrl);
+
+    const fileRes = await fetch(directDownloadUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
+        "Accept": "*/*"
+      },
+      redirect: "follow"
+    });
+
+    if (!fileRes.ok) {
+      return res.status(fileRes.status).json({
+        ok: false,
+        error: `ไม่สามารถดาวน์โหลดไฟล์จาก OneDrive ได้ (Status ${fileRes.status}): กรุณาตรวจสอบว่าลิงก์ถูกแชร์แบบ 'Anyone with the link can view' (ทุกคนที่มีลิงก์สามารถดูได้)`
+      });
+    }
+
+    const arrayBuffer = await fileRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Read with xlsx library (supports .xlsx, .xls, .csv)
+    let workbook: XLSX.WorkBook;
+    try {
+      workbook = XLSX.read(buffer, { type: "buffer" });
+    } catch (parseErr: any) {
+      // If binary parse failed, check if it's text/html or csv
+      const text = buffer.toString("utf-8");
+      if (text.includes("<html") || text.includes("<!DOCTYPE")) {
+        return res.status(400).json({
+          ok: false,
+          error: "ลิงก์ OneDrive ที่ระบุคืนค่าเป็นหน้าเว็บ HTML แทนที่จะเป็นไฟล์ Excel กรุณาตรวจสอบการตั้งค่าแชร์ หรือใช้ตัวเลือก 'อัปโหลดไฟล์ Excel จากเครื่อง' ด้านล่างได้ทันที"
+        });
+      }
+      workbook = XLSX.read(text, { type: "string" });
+    }
+
+    const sheetNames = workbook.SheetNames;
+    if (!sheetNames || sheetNames.length === 0) {
+      return res.status(400).json({ ok: false, error: "ไม่พบแผ่นงาน (Sheet) ในไฟล์ Excel นี้" });
+    }
+
+    // Default to the first sheet or one containing 'Software' or 'EA' or 'Content'
+    const targetSheetName = sheetNames.find(s => /software|ea|content|database/i.test(s)) || sheetNames[0];
+    const sheet = workbook.Sheets[targetSheetName];
+    const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    // Clean rows and filter out completely empty rows
+    const cleanedRows = rawRows
+      .map(row => row.map(cell => String(cell !== undefined && cell !== null ? cell : "").trim()))
+      .filter(row => row.some(cell => cell.length > 0));
+
+    res.json({
+      ok: true,
+      title: targetSheetName || "OneDrive Sheet",
+      sheetNames,
+      totalRows: cleanedRows.length,
+      rows: cleanedRows
+    });
+  } catch (err: any) {
+    console.error("OneDrive fetch error:", err);
+    res.status(500).json({
+      ok: false,
+      error: `เกิดข้อผิดพลาดในการดึงข้อมูลจาก OneDrive: ${err?.message || "ไม่สามารถเข้าถึงไฟล์ได้"}`
+    });
+  }
+});
+
+// API endpoint to parse uploaded Excel or CSV file
+app.post("/api/onedrive/parse-file", async (req, res) => {
+  try {
+    const { base64Data, fileName } = req.body || {};
+    if (!base64Data) {
+      return res.status(400).json({ ok: false, error: "ไม่พบข้อมูลไฟล์สำหรับประมวลผล" });
+    }
+
+    const buffer = Buffer.from(base64Data, "base64");
+    const workbook = XLSX.read(buffer, { type: "buffer" });
+    const sheetNames = workbook.SheetNames;
+    
+    if (!sheetNames || sheetNames.length === 0) {
+      return res.status(400).json({ ok: false, error: "ไม่พบแผ่นงานในไฟล์" });
+    }
+
+    const targetSheetName = sheetNames.find(s => /software|ea|content|database/i.test(s)) || sheetNames[0];
+    const sheet = workbook.Sheets[targetSheetName];
+    const rawRows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+
+    const cleanedRows = rawRows
+      .map(row => row.map(cell => String(cell !== undefined && cell !== null ? cell : "").trim()))
+      .filter(row => row.some(cell => cell.length > 0));
+
+    res.json({
+      ok: true,
+      title: fileName || targetSheetName || "Uploaded Excel",
+      sheetNames,
+      totalRows: cleanedRows.length,
+      rows: cleanedRows
+    });
+  } catch (err: any) {
+    console.error("Parse file error:", err);
+    res.status(500).json({ ok: false, error: `ไม่สามารถอ่านไฟล์ Excel ได้: ${err.message}` });
+  }
+});
+
+// API endpoint to analyze raw EA or Software text / specs and extract Tagline, Features, and Prompts.
 app.post("/api/analyze", async (req, res) => {
   try {
-    const { input, geminiApiKey } = req.body || {};
+    const { input, geminiApiKey, category } = req.body || {};
     if (!input) {
       return res.status(400).json({ error: "Input text is required" });
     }
@@ -121,7 +262,68 @@ app.post("/api/analyze", async (req, res) => {
       });
     }
 
-    const prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
+    // Auto-detect Category: Movie vs Software vs Forex EA
+    const isMovie = (category === "movie") || (category !== "ea" && category !== "software" && (
+      /bilibili|snapwc|movie|cinema|film|series|anime|imdb|netflix|เรื่องย่อ|ภาพยนตร์|หนัง|อนิเมะ|ซีรีส์|นักแสดง|ผู้กำกับ/i.test(input)
+    ));
+
+    const isSoftware = !isMovie && ((category === "software") || (category !== "ea" && (
+      /davinci|resolve|adobe|photoshop|premiere|after effects|illustrator|autocad|blender|cinema 4d|windows|office|studio|setup\.exe|x64|x86|installer|portable|v\d+|\.iso|\.zip|software|utility|plugin|vst|crack|full version|keygen|corel|obs|maya|visual studio|driver|antivirus/i.test(input)
+    )));
+
+    const detectedCategory = isMovie ? "movie" : (isSoftware ? "software" : "ea");
+
+    let prompt = "";
+    if (isMovie) {
+      prompt = `You are an expert Hollywood cinema copywriter, movie reviewer, and creative poster designer for feature films, blockbuster cinema, anime movies, and streaming series.
+Given the following raw text, movie title, Bilibili video description, synopsis, or genre notes:
+
+1. Parse and extract/generate the official Movie Title & Year (e.g. "Avatar: The Way of Water (2022) อวตาร: วิถีแห่งสายน้ำ" or "Cyberpunk: Edgerunners (2022)"). DO NOT mention EA, trading, forex, or pips!
+2. Create an exciting, cinematic, persuasive marketing tagline (คำโปรยภาพยนตร์ in Thai, 1-2 sentences) that captures the emotion, thrill, epic stakes, and atmosphere of the movie. MUST be formatted as modern, clean HTML code (e.g. '<p class="text-amber-400 font-bold text-lg">...</p>').
+3. Generate a structured synopsis and movie specifications (เรื่องย่อและรายละเอียดภาพยนตร์ in Thai) formatted entirely as clean, styled semantic HTML code ('<ul>', '<li>', '<strong>', '<span class="...">'). Include:
+   - 🎬 แนวภาพยนตร์ (Genre: Action, Sci-Fi, Fantasy, Anime, Drama, etc.)
+   - ⏱️ ความยาว & คุณภาพ (Duration, 4K UHD, HDR10, Dolby Atmos, เสียงไทย/ซับไทย)
+   - 🌟 ผู้กำกับ & นักแสดงนำ (Director, Cast, Voice Actors)
+   - 📖 เรื่องย่อภาพยนตร์ (Compelling 2-3 paragraph movie plot overview without spoiling the ending)
+4. Code a stunning, modern cinema showcase card using HTML with Tailwind CSS. Styled like a dark theater backdrop with gold/amber/crimson accents, star rating (⭐⭐⭐⭐⭐ 4.8/5), genre badges, duration chip, synopsis, and an attractive '▶️ รับชมภาพยนตร์' / '⬇️ ดาวน์โหลด 4K' button. Must be self-contained in a single <div>.
+5. Create a highly descriptive English image generation prompt for generating an 8K commercial theatrical movie poster:
+   - EXACT PROMPT FORMULA FOR MOVIE POSTER:
+     "At the very top, large glowing 3D cinematic metallic title text displaying \\"[EXACT_MOVIE_NAME]\\". Center stage features an epic high-budget IMAX movie poster design with the main heroes and villains, dramatic cinematic color grading, volumetric fog, rim lighting, lens flare, film grain, 8k octane render, photorealistic Hollywood masterpiece."
+
+CRITICAL DESIGN REQUIREMENT FOR HTML / TEXT FIELDS:
+- DO NOT use HTML character entities like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;'. Use raw characters.
+- Thai text must be grammatically correct, dramatic, and captivating.
+
+Input Movie Information:
+${input}
+
+Return your response strictly as a JSON object matching the requested schema.`;
+    } else if (isSoftware) {
+      prompt = `You are an expert software engineer, technical copywriter, and digital product marketing designer for PC/Mac desktop software, creative studio tools, utilities, and applications.
+Given the following raw text, software title, version specs, installer notes, or feature requests:
+
+1. Parse and extract the exact, clean Software Name & Version (short, clean, professional e.g. "DaVinci Resolve Studio 18.1.3 (x64)" or "Adobe Premiere Pro 2024 (v24.2)"). DO NOT mention EA, trading, forex, or pips!
+2. Create a catchy, persuasive marketing tagline (คำโปรย in Thai, 1-2 sentences) highlighting the software's speed, productivity, creative power, stability, rendering excellence, or user experience. MUST be returned fully formatted as modern, clean HTML code (e.g. using '<p class="text-indigo-600 font-bold text-lg">...</p>').
+3. Generate a structured features & technical summary (สรุปฟีเจอร์และรายละเอียด in Thai) formatted entirely as clean, robust semantic HTML code ('<ul>', '<li>', '<strong>', '<span class="...">'). Include:
+   - 🌟 ฟีเจอร์หลัก & เครื่องมือใหม่ล่าสุด (Key features, AI tools, rendering engine)
+   - 💻 สเปกความต้องการของระบบ (System Requirements: OS Windows 10/11 x64, CPU, RAM, GPU VRAM, Storage)
+   - ⚡ รูปแบบการติดตั้ง (Full Version / Pre-activated / Portable / Multilingual)
+   - 🛠️ คำแนะนำและขั้นตอนการติดตั้งเบื้องต้น
+4. Code a stunning, modern software showcase card using HTML with Tailwind CSS. Display the software title, version badge, tagline, specs grid, key highlights, and clean download CTA styling. Must be self-contained in a single <div>.
+5. Create a highly descriptive English image generation prompt for generating an 8K commercial product showcase poster:
+   - EXACT PROMPT FORMULA FOR SOFTWARE:
+     "At the very top, large glowing neon 3D metallic header text displaying \\"[EXACT_SOFTWARE_NAME]\\". The image features a sleek, high-tech 3D software box packaging mockup next to a futuristic creative studio workstation with dual 4K curved displays showcasing the software interface (multitrack timeline, visual nodes, rendering viewport, high-tech UI). Volumetric cinematic studio lighting, vibrant neon accents, sharp 8k resolution, photorealistic commercial product photography masterpiece."
+
+CRITICAL DESIGN REQUIREMENT FOR HTML / TEXT FIELDS:
+- DO NOT use HTML character entities like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;'. Use raw characters.
+- Thai text must be grammatically correct, inspiring, and persuasive.
+
+Input Software Text/Specs:
+${input}
+
+Return your response strictly as a JSON object matching the requested schema.`;
+    } else {
+      prompt = `You are an expert copywriter, software engineer, and marketing designer for MetaTrader Expert Advisors (EA). 
 Given the following raw text, EA trading strategy description, MQL code, or feature request, perform these steps:
 1. Parse and extract/generate a professional and unique EA Name (short, maximum 4-5 words, e.g. "Scalping Horizon EA" or "Divergence Quantum Pro").
 2. Create a catchment, catchy, persuasive marketing tagline (คำโปรย in Thai, 1-2 sentences) that highlights the EA's key benefit or strategy. This tagline MUST be returned fully formatted as modern, clean HTML code (e.g. using a beautifully styled paragraph tag or wrapper like '<p class="text-indigo-600 font-bold italic text-lg">...</p>').
@@ -134,23 +336,17 @@ Given the following raw text, EA trading strategy description, MQL code, or feat
    - The HTML code should be robust, professional, and readable.
 5. Create a highly descriptive English image generation prompt to generate a stunning, commercial-grade marketing infographic poster that explicitly represents this EA and features its name prominently at the top.
    - EXACT PROMPT FORMULA (as shown in high-converting commercial forex AI posters):
-     "At the very top, large glowing neon 3D metallic header text displaying \"[EXACT_EA_NAME]\". The image features a powerful, stylized holographic [MASCOT/SYMBOL MATCHING EA NAME, e.g. 'mustang horse' for Mustang EA, 'golden cyber dragon' for Dragon EA, 'majestic golden bull' for Bull/Trend EA, 'cybernetic falcon' for Scalper/Falcon EA, 'futuristic samurai' for Samurai EA, 'modern cyber-pop AI robot' for Robot/Lollipop EA] formed from golden light and flowing digital trading data on a high-tech glowing trading platform. In the background, sleek multi-monitor trading stations with glowing green candlestick charts (EURUSD, GBPUSD, XAUUSD) and forex telemetry dashboards with ascending profit trendlines. Ultra-bright cinematic studio lighting, sharp 8k resolution, photorealistic commercial masterpiece."
-   - CRITICAL QUALITY RULES:
-     * Header Text: Must explicitly include 'At the very top, large glowing neon 3D metallic header text displaying "[EXACT_EA_NAME]"'.
-     * Center Focal Point: Dynamic holographic creature or mascot formed of golden light and flowing forex telemetry data on a high-tech glowing platform.
-     * Background Workstation: Multi-screen MetaTrader 5 trading stations displaying glowing green candlestick charts, indicators (EMA, RSI, MACD), currency matrix, and profit telemetry.
-     * Lighting & Aesthetics: Ultra-bright clean cinematic neon and studio lighting with vibrant green, gold, and cyan highlights. 8k resolution, photorealistic commercial masterpiece.
-   - STRICT NEGATIVE CONSTRAINTS: DO NOT generate dark moody rooms, scary cyborg portraits, single humanoid portraits without charts, empty tables, or blurry graphics.
+     "At the very top, large glowing neon 3D metallic header text displaying \\"[EXACT_EA_NAME]\\". The image features a powerful, stylized holographic [MASCOT/SYMBOL MATCHING EA NAME, e.g. 'mustang horse' for Mustang EA, 'golden cyber dragon' for Dragon EA, 'majestic golden bull' for Bull/Trend EA, 'cybernetic falcon' for Scalper/Falcon EA, 'futuristic samurai' for Samurai EA, 'modern cyber-pop AI robot' for Robot/Lollipop EA] formed from golden light and flowing digital trading data on a high-tech glowing trading platform. In the background, sleek multi-monitor trading stations with glowing green candlestick charts (EURUSD, GBPUSD, XAUUSD) and forex telemetry dashboards with ascending profit trendlines. Ultra-bright cinematic studio lighting, sharp 8k resolution, photorealistic commercial masterpiece."
 
 CRITICAL DESIGN REQUIREMENT FOR HTML / TEXT FIELDS:
-- DO NOT use any HTML character entities or encodings like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;' inside the Thai text fields or HTML wrappers.
-- All Thai quotation marks must be raw characters (e.g., “ หรือ ” หรือ " หรือ ') or normal standard characters.
-- Ensure that the resulting JSON can be rendered directly using dangerouslySetInnerHTML without displaying weird literal codes like '&ldquo;' to the user.
+- DO NOT use any HTML character entities or encodings like '&ldquo;', '&rdquo;', '&rsquo;', '&lsquo;', '&quot;', '&amp;', or '&nbsp;'.
+- All Thai quotation marks must be raw characters.
 
 Input Text/Strategy Description:
 ${input}
 
-Return your response strictly as a JSON object matching the requested schema. Ensure that your output does not wrap the JSON keys with any formatting or code blocks inside the text fields. Thai text must be grammatically correct and persuasive.`;
+Return your response strictly as a JSON object matching the requested schema.`;
+    }
 
     const schemaConfig = {
       responseMimeType: "application/json",
@@ -159,7 +355,7 @@ Return your response strictly as a JSON object matching the requested schema. En
         properties: {
           eaName: {
             type: Type.STRING,
-            description: "The name of the Expert Advisor (EA)."
+            description: isMovie ? "The title and release year of the Movie." : (isSoftware ? "The exact name and version of the Software." : "The name of the Expert Advisor (EA).")
           },
           tagline: {
             type: Type.STRING,
@@ -167,7 +363,7 @@ Return your response strictly as a JSON object matching the requested schema. En
           },
           featuresSummary: {
             type: Type.STRING,
-            description: "Structured trading features and settings in Thai (สรุปฟีเจอร์) formatted entirely as clean, styled semantic HTML code (e.g. ul/li/strong/span)."
+            description: isMovie ? "Synopsis and movie specifications in Thai (เรื่องย่อ & ข้อมูลภาพยนตร์) formatted as styled HTML." : (isSoftware ? "Structured software features and system requirements in Thai formatted as HTML." : "Structured EA features in Thai formatted as HTML.")
           },
           htmlCode: {
             type: Type.STRING,
@@ -175,7 +371,11 @@ Return your response strictly as a JSON object matching the requested schema. En
           },
           imagePrompt: {
             type: Type.STRING,
-            description: "Detailed English image generation prompt for Leonardo.ai representing the EA."
+            description: "Detailed English image generation prompt representing the product."
+          },
+          systemRequirements: {
+            type: Type.STRING,
+            description: "Short summary of system requirements (OS, RAM, GPU, CPU) or Movie genre/specs."
           }
         },
         required: ["eaName", "tagline", "featuresSummary", "htmlCode", "imagePrompt"]
@@ -297,13 +497,18 @@ Return your response strictly as a JSON object matching the requested schema. En
     result.featuresSummary = sanitizeHtmlEntities(result.featuresSummary || "");
     result.htmlCode = sanitizeHtmlEntities(result.htmlCode || "");
     result.imagePrompt = sanitizeHtmlEntities(result.imagePrompt || "");
+    result.category = detectedCategory;
+    if (result.systemRequirements) {
+      result.systemRequirements = sanitizeHtmlEntities(result.systemRequirements);
+    }
 
     res.json(result);
   } catch (error: any) {
     console.error("Gemini analysis error:", error);
-    res.status(500).json({ error: error.message || "Failed to analyze and extract EA content" });
+    res.status(500).json({ error: error.message || "Failed to analyze and extract content" });
   }
 });
+
 
 // Proxy route to initiate image generation on Gemini Imagen 3, OpenAI DALL-E 3, or Leonardo.ai
 app.post("/api/leonardo/generate", async (req, res) => {
